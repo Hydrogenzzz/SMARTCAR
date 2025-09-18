@@ -1,21 +1,27 @@
 #include "my_flash.h"
 
 uint8 write_flag = 0,flash_flag = 0;
-uint8 erase_flag = 0;//ÏÈ1ºó0Òª¼Ç×¡ 1-²Á³ıand±£´æ±äÁ¿µÄ³õÊ¼»¯Öµ 0-²»²Á³ıand±£´æ±äÁ¿
+uint8 erase_flag = 0;//ï¿½ï¿½1ï¿½ï¿½0Òªï¿½ï¿½×¡ 1-ï¿½ï¿½ï¿½ï¿½andï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä³ï¿½Ê¼ï¿½ï¿½Öµ 0-ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½andï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 float speed=100;
+/*
+å‡½æ•°åç§°ï¼šread_flash_to_buffer
+åŠŸèƒ½è¯´æ˜ï¼šä»Flashå­˜å‚¨å™¨ä¸­è¯»å–é…ç½®æ•°æ®åˆ°ç¼“å†²åŒº
+å‚æ•°è¯´æ˜ï¼šæ— 
+å‡½æ•°è¿”å›ï¼šæ— 
+*/
 void read_flash_to_buffer(void)
 {
-    //1-²Á³ı
+    // å½“erase_flagä¸º1æ—¶ï¼Œéœ€è¦å…ˆæ“¦é™¤Flashé¡µ
     if(erase_flag == 1)
     {
-        flash_erase_page(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX); // ²Á³ıÕâÒ»Ò³
+        flash_erase_page(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX); // æ“¦é™¤Flashé¡µ
     }
-    //0-²»²Á³ı Ö±½Ó¶ÁÈ¡
+    // å½“erase_flagä¸º0æ—¶ï¼Œç›´æ¥ä»Flashè¯»å–æ•°æ®
     if(erase_flag == 0)
     {
-        flash_read_page_to_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);// ½«Êı¾İ´Ó flash ¶ÁÈ¡µ½»º³åÇø
+        flash_read_page_to_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX); // ä»Flashè¯»å–æ•°æ®åˆ°ç¼“å†²åŒº
         /////////////////////////////////////////////////////////////////////////
-          speed = flash_union_buffer[0].float_type;
+          speed = flash_union_buffer[0].float_type;  // è¯»å–é€Ÿåº¦å‚æ•°
 //        max_turn_speed = flash_union_buffer[1].float_type;
 //        S3010.kp = flash_union_buffer[2].float_type;
 //        S3010.kd = flash_union_buffer[3].float_type;
@@ -36,14 +42,20 @@ void read_flash_to_buffer(void)
     }
 }
 
+/*
+å‡½æ•°åç§°ï¼šwrite_buffer_to_flash
+åŠŸèƒ½è¯´æ˜ï¼šå°†ç¼“å†²åŒºä¸­çš„é…ç½®æ•°æ®å†™å…¥Flashå­˜å‚¨å™¨
+å‚æ•°è¯´æ˜ï¼šæ— 
+å‡½æ•°è¿”å›ï¼šæ— 
+*/
 void write_buffer_to_flash(void)
 {
-    //Ğ´Èë±£´æ±äÁ¿µÄ³õÊ¼»¯Öµ
+    // å½“erase_flagä¸º1ä¸”write_flagä¸º1æ—¶ï¼Œå†™å…¥é»˜è®¤åˆå§‹å€¼
     if(erase_flag == 1 && write_flag == 1)
     {
-        flash_buffer_clear();
+        flash_buffer_clear();  // æ¸…ç©ºç¼“å†²åŒº
         /////////////////////////////////////////////////////////////////////////
-       flash_union_buffer[0].float_type = 100;//speed
+       flash_union_buffer[0].float_type = 100;  // è®¾ç½®é»˜è®¤é€Ÿåº¦å€¼
 //        flash_union_buffer[1].float_type = 160;//max_turn_speed
 //        flash_union_buffer[2].float_type = 2.3;//S3010.kp
 //        flash_union_buffer[3].float_type = 5;//S3010.kd
@@ -61,17 +73,17 @@ void write_buffer_to_flash(void)
 //        flash_union_buffer[15].float_type = 7.65 * 100;//servo_duty_max
 //        flash_union_buffer[16].float_type = 6.05 * 100;//servo_duty_min
         /////////////////////////////////////////////////////////////////////////
-        flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);// ÏòÖ¸¶¨ Flash ÉÈÇøµÄÒ³ÂëĞ´Èë»º³åÇøÊı¾İ
-        flash_buffer_clear();
-        write_flag = 0;
-        flash_flag++;
+        flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);  // å°†ç¼“å†²åŒºæ•°æ®å†™å…¥Flash
+        flash_buffer_clear();  // æ¸…ç©ºç¼“å†²åŒº
+        write_flag = 0;  // æ¸…é™¤å†™æ ‡å¿—
+        flash_flag++;  // å¢åŠ Flashæ“ä½œè®¡æ•°
     }
-    //±£´æ±äÁ¿
+    // å½“erase_flagä¸º0ä¸”write_flagä¸º1æ—¶ï¼Œå†™å…¥å½“å‰å‚æ•°å€¼
     if(erase_flag == 0 && write_flag == 1)
     {
-        flash_buffer_clear();
+        flash_buffer_clear();  // æ¸…ç©ºç¼“å†²åŒº
         /////////////////////////////////////////////////////////////////////////
-       flash_union_buffer[0].float_type = speed;
+       flash_union_buffer[0].float_type = speed;  // å†™å…¥å½“å‰é€Ÿåº¦å€¼
 //        flash_union_buffer[1].float_type = max_turn_speed;
 //        flash_union_buffer[2].float_type = S3010.kp;
 //        flash_union_buffer[3].float_type = S3010.kd;
@@ -89,10 +101,10 @@ void write_buffer_to_flash(void)
 //        flash_union_buffer[15].float_type = servo_duty_max;
 //        flash_union_buffer[16].float_type = servo_duty_min;
         /////////////////////////////////////////////////////////////////////////
-        flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);// ÏòÖ¸¶¨ Flash ÉÈÇøµÄÒ³ÂëĞ´Èë»º³åÇøÊı¾İ
-        flash_buffer_clear();
-        write_flag = 0;
-        flash_flag++;
+        flash_write_page_from_buffer(FLASH_SECTION_INDEX, FLASH_PAGE_INDEX);  // å°†ç¼“å†²åŒºæ•°æ®å†™å…¥Flash
+        flash_buffer_clear();  // æ¸…ç©ºç¼“å†²åŒº
+        write_flag = 0;  // æ¸…é™¤å†™æ ‡å¿—
+        flash_flag++;  // å¢åŠ Flashæ“ä½œè®¡æ•°
     }
 }
 

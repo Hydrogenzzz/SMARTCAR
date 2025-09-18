@@ -1,5 +1,7 @@
 {
   "files.associations": {
-    "image.h": "c"
+    "image.h": "c",
+    "motor.h": "c",
+    "common.h": "c"
   }
 }

@@ -1,3 +1,4 @@
+
 #ifndef _TRACK_H_
 #define _TRACK_H_
 
@@ -5,21 +6,17 @@
 #include "image.h"
 
 // 复用现有的图像尺寸定义
-#define image_h	MT9V03X_H	//图像高度
-#define image_w	MT9V03X_W	//图像宽度
-
-// 兼容IMAGE_HEIGHT和IMAGE_WIDTH的定义
-#define IMAGE_HEIGHT	image_h
-#define IMAGE_WIDTH	image_w
+#define IMAGE_HEIGHT MT9V03X_H   //图像高度
+#define IMAGE_WIDTH MT9V03X_W   //图像宽度
 
 // 颜色定义
-#define uesr_RED	0XF800    //红色
-#define uesr_GREEN	0X07E0    //绿色
-#define uesr_BLUE	0X001F    //蓝色
+#define uesr_RED    0XF800    //红色
+#define uesr_GREEN  0X07E0    //绿色
+#define uesr_BLUE   0X001F    //蓝色
 
 // 边界定义
-#define border_max	(image_w-2) //边界最大值
-#define border_min	1	//边界最小值	
+#define border_max  (image_w-2) //边界最大值
+#define border_min  1   //边界最小值
 
 // 函数声明
 extern void track_process(void); // 巡线主处理函数
@@ -31,7 +28,31 @@ extern uint8 original_image[image_h][image_w];
 
 extern int16 track_deviation;    // 路径偏差值（-100到100）
 
-extern uint8 line_detected;      // 线是否找到标志
+extern uint8 line_detected;         // 线是否找到标志
+
+// 环岛状态机定义
+enum CIRCLE_STATE {
+    CIRCLE_NONE = 0,        // 无环岛状态
+    CIRCLE_ENTRY,           // 进入环岛状态
+    CIRCLE_ON_TRACK,        // 在环岛内正常行驶
+    CIRCLE_EXIT_DETECT,     // 检测环岛出口
+    CIRCLE_EXIT             // 离开环岛状态
+};
+
+// 环岛相关全局变量
+extern enum CIRCLE_STATE circle_state;  // 当前环岛状态
+extern uint8 circle_entry_count;        // 进入环岛计数
+extern uint8 circle_exit_count;         // 离开环岛计数
+extern uint8 circle_exit_detected;      // 出口检测标志
+
+// 环岛检测参数
+extern uint8 target_speed;              // 目标速度
+
+// 环岛处理函数声明
+extern uint8 detect_circle_entry(void);     // 检测环岛入口
+extern uint8 detect_circle_exit(void);      // 检测环岛出口
+extern void circle_process(void);           // 环岛处理主函数
+extern void track_process_with_circle(void); // 带环岛处理的巡线函数
 
 #endif /*_TRACK_H_*/
 

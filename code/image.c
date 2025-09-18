@@ -96,7 +96,13 @@ void adaptiveThreshold(const uint8_t (*mat)[120][188], uint8_t (*bin_img)[120][1
   }
 }
 
-//上位机
+/*
+函数名称：MapImagshow_UpperComputer
+功能说明：将地图图像通过UART发送到上位机显示
+参数说明：
+          map_image - 要发送的地图图像数组指针
+函数返回：无
+*/
 void MapImagshow_UpperComputer(const uint8_t (*map_image)[120][188]) {
     uart_write_byte(UART_0,0x00);
     uart_write_byte(UART_0,0xff);
@@ -109,6 +115,14 @@ void MapImagshow_UpperComputer(const uint8_t (*map_image)[120][188]) {
     }
 }
 
+/*
+函数名称：Inv_Perspective_Map_point
+功能说明：对单个点进行逆透视变换
+参数说明：
+          i, j - 原始点坐标
+          x, y - 变换后点坐标的输出指针
+函数返回：无
+*/
 void Inv_Perspective_Map_point(const uint8_t i,const uint8_t j, int *x, int *y) {
     *x = (int)((change_un_Mat[0][0] * i
        + change_un_Mat[0][1] * j + change_un_Mat[0][2])
@@ -120,6 +134,14 @@ void Inv_Perspective_Map_point(const uint8_t i,const uint8_t j, int *x, int *y) 
        + change_un_Mat[2][2]));
 }
 
+/*
+函数名称：Inv_Perspective_Map
+功能说明：对整个图像进行逆透视变换
+参数说明：
+          image - 原始图像数组指针
+          map_img - 变换后图像数组指针
+函数返回：无
+*/
 void Inv_Perspective_Map(const uint8_t (*image)[120][188], uint8_t (*map_img)[120][188]) {
     for (int i = 0; i < 188; i++) {
        for (int j = 0; j < 120; j++) {
@@ -135,31 +157,57 @@ void Inv_Perspective_Map(const uint8_t (*image)[120][188], uint8_t (*map_img)[12
    }
 }
 
+/*
+函数名称：line_clean
+功能说明：清空线条数据
+参数说明：
+          self - 线条结构体指针
+函数返回：无
+*/
 void line_clean(line *self){
-    self->length = 0;
+    self->length = 0;  // 重置线条长度为0
 }
 
+/*
+函数名称：line_append
+功能说明：向线条中添加点
+参数说明：
+          self - 线条结构体指针
+          p - 要添加的点坐标
+函数返回：无
+*/
 void line_append(line *self, point p) {
     if(self->length < LINE_MAX_LENGTH){
-        self->data[self->length] = p;
-        self->length++;
+        self->data[self->length] = p;  // 添加点到线条数据数组
+        self->length++;                // 线条长度加1
     }
 }
 
+/*
+函数名称：draw_point
+功能说明：在TFT屏幕上绘制单个点
+参数说明：
+          self - 点结构体指针
+          color - 点的颜色（RGB565格式）
+函数返回：无
+*/
 void draw_point(const point * self,const uint16_t color){
     uint16_t tar_row = 0,tar_col = 0;
-    // 修复：使用与tft180_show_gray_image相同的坐标映射逻辑，确保线段与二值化图像对齐
-    // 注意：tft180_show_gray_image中，height_index对应行索引，width_index对应列索引
-    tar_row = (self->x) * 128 / 120;  // y坐标映射
-    tar_col = (self->y) * 160 / 188;  // x坐标映射
-    // 额外调整：考虑到tft180_show_gray_image在显示时可能有微小偏移
-    tar_col = tar_col;  // x坐标不需要额外调整
-    tar_row = tar_row;  // y坐标不需要额外调整
-    tft180_draw_point(tar_col,tar_row,color);
+    tar_row = (self->x) * 128 / 120;  // 坐标转换（适应屏幕尺寸）
+    tar_col = (self->y) * 160 / 188;
+    tft180_draw_point(tar_col,tar_row,color);  // 在屏幕上绘制点
 }
 
+/*
+函数名称：draw_line
+功能说明：在TFT屏幕上绘制线条
+参数说明：
+          self - 线条结构体指针
+          color - 线条颜色（RGB565格式）
+函数返回：无
+*/
 void draw_line(const line * const self, uint16_t color){
     for(int cur = 0;cur < self->length;cur++){
-        draw_point(&(self->data)[cur],color);
+        draw_point(&(self->data)[cur],color);  // 依次绘制线条中的每个点
     }
 }

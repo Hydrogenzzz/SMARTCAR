@@ -10,9 +10,15 @@ uint32 bluetooth_fifo_data_count = 0;                                           
 
 fifo_struct bluetooth_uart_data_fifo;
 
+/*
+函数名称：BlueTooth_Init
+功能说明：初始化蓝牙通信模块
+参数说明：无
+函数返回：无
+*/
 void BlueTooth_Init(void)
 {
-    fifo_init(&bluetooth_uart_data_fifo, FIFO_DATA_8BIT, bluetooth_uart_get_data, 64);
-    uart_init(BT_UART_INDEX, BT_UART_BAUDRATE, BT_UART_TX_PIN, BT_UART_RX_PIN);
-    uart_rx_interrupt(BT_UART_INDEX, 1);
+    fifo_init(&bluetooth_uart_data_fifo, FIFO_DATA_8BIT, bluetooth_uart_get_data, 64);  // 初始化数据缓冲区FIFO
+    uart_init(BT_UART_INDEX, BT_UART_BAUDRATE, BT_UART_TX_PIN, BT_UART_RX_PIN);         // 初始化UART通信端口
+    uart_rx_interrupt(BT_UART_INDEX, 1);                                                // 使能UART接收中断
 }

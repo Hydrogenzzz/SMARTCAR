@@ -47,27 +47,52 @@
 // **************************** �������� ****************************
 char BT_String[20];
 uint8_t data = 25;
+/*
+函数名称：int core0_main(void)
+功能说明：CPU0主函数，负责系统初始化和主循环控制
+参数说明：无
+函数返回：理论上不会返回（无限循环），返回值类型仅为兼容系统要求
+*/
 int core0_main(void)
 {
-
-    clock_init(); // ��ȡʱ��Ƶ��<��ر���>
-    debug_init(); // ��ʼ��Ĭ�ϵ��Դ���
-    // �˴���д�û����� ���������ʼ�������
+    // 初始化系统时钟
+    clock_init(); // 获取时钟频率<自动配置>
+    // 初始化默认的调试串口
+    debug_init(); // 初始化默认的调试端口
+    
+    // 以下为用户代码区域：初始化各种硬件模块
+    // 初始化按键列表，参数1表示支持长按功能
     key_list_init(1);
+    // 设置TFT显示屏为横屏模式
     tft180_set_dir(TFT180_CROSSWISE);
+    // 初始化1.8寸TFT显示屏
     tft180_init();
-    menu_init(); // �˵���ʼ��
+    // 初始化菜单系统
+    menu_init(); // 菜单初始化
+    // 初始化编码器
     encoder_init();
+    // 初始化舵机控制
     server_init();
+    // 初始化电机控制
     Motor_Init();
+    // 初始化MT9V03X摄像头
     mt9v03x_init();
 
+    // 设置摄像头曝光时间为100
     mt9v03x_set_exposure_time(100);
+    
+    // 初始化左电机增量式PID控制器（P=1.5, I=0.1, D=0.05, 输出限幅10000）
     Incremental_PID_Init(&left, 1.5, 0.1, 0.05, 10000);
+    // 初始化右电机增量式PID控制器（P=1.5, I=0.1, D=0.05, 输出限幅10000）
     Incremental_PID_Init(&right, 1.5, 0.1, 0.05, 10000);
-    pit_ms_init(CCU60_CH1, 5); // ��������ȡ�ٶ�
-    pit_ms_init(CCU60_CH0, 5); // ��������
-    Target_Speed_Control(40, 40); // �������ٶ�
+    
+    // 初始化PIT定时器，用于定时读取速度，周期5ms
+    pit_ms_init(CCU60_CH1, 5); // 定时读取速度
+    // 初始化PIT定时器，用于按键扫描，周期5ms
+    pit_ms_init(CCU60_CH0, 5); // 按键扫描
+    
+    // 设置初始目标速度为左右轮各40
+    Target_Speed_Control(40, 40); // 设定速度
     // �˴���д�û����� ���������ʼ�������
     cpu_wait_event_ready(); // �ȴ����к��ĳ�ʼ�����
     while (TRUE)
