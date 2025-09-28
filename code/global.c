@@ -10,6 +10,7 @@ float target_left = 0;
 // 右轮目标速度
 float target_right = 0;
 // 二值化图像（未初始化，仅声明）
+float target_angle = 0;
 uint8_t bin_image;
 
 /*

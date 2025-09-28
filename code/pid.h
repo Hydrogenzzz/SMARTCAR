@@ -23,5 +23,6 @@ void Double_pd_Positional_PID_Calc(PID *pid, float se_value, float get_value, fl
 
 extern PID left;
 extern PID right;
+extern PID angle;
 
 #endif

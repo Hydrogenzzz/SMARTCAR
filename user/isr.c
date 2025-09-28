@@ -63,18 +63,18 @@ IFX_INTERRUPT(cc60_pit_ch1_isr, 0, CCU6_0_CH1_ISR_PRIORITY)
 {
     interrupt_global_enable(0); // 开启中断嵌套
     pit_clear_flag(CCU60_CH1);  // 清除PIT中断标志位
-    
+
     // 读取编码器计数并计算实际速度
     speedleft = -(int)encoder_get_count(TIM5_ENCODER);
     speedright = (int)encoder_get_count(TIM6_ENCODER);
-    
+
     // 进行PID计算
     Incremental_PID_Calc(&left, target_left, speedleft);
     Incremental_PID_Calc(&right, target_right, speedright);
-    
+
     // 控制电机
     Motor_Control(left.output, right.output);
-    
+
     // 清除编码器计数，准备下次读取
     encoder_clear_count(TIM5_ENCODER);
     encoder_clear_count(TIM6_ENCODER);
@@ -90,6 +90,7 @@ IFX_INTERRUPT(cc61_pit_ch0_isr, 0, CCU6_1_CH0_ISR_PRIORITY)
 {
     interrupt_global_enable(0); // 开启中断嵌套
     pit_clear_flag(CCU61_CH0);  // 清除PIT中断标志位
+    Positional_PID_Calc(&angle, target_angle, );
 }
 
 /*

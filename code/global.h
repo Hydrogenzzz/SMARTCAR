@@ -18,5 +18,6 @@ extern float speedleft;
 extern float speedright;
 extern float target_left;
 extern float target_right;
+extern float target_angle;
 extern uint8_t bin_image;
 #endif

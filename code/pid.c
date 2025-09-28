@@ -1,6 +1,6 @@
 #include "pid.h"
 
-PID left,right;
+PID left,right,angle;
 /**
  * ************************************************************************
  * @brief 增量式PID参数的初始化

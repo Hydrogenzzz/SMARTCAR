@@ -59,7 +59,7 @@ int core0_main(void)
     clock_init(); // 获取时钟频率<自动配置>
     // 初始化默认的调试串口
     debug_init(); // 初始化默认的调试端口
-    
+
     // 以下为用户代码区域：初始化各种硬件模块
     // 初始化按键列表，参数1表示支持长按功能
     key_list_init(1);
@@ -80,17 +80,18 @@ int core0_main(void)
 
     // 设置摄像头曝光时间为100
     mt9v03x_set_exposure_time(100);
-    
+    Positional_PID_Init(&angle, 1.5, 0.1, 0.05, 968);
     // 初始化左电机增量式PID控制器（P=1.5, I=0.1, D=0.05, 输出限幅10000）
     Incremental_PID_Init(&left, 1.5, 0.1, 0.05, 10000);
     // 初始化右电机增量式PID控制器（P=1.5, I=0.1, D=0.05, 输出限幅10000）
     Incremental_PID_Init(&right, 1.5, 0.1, 0.05, 10000);
-    
+    // 初始化PIT定时器，用于控制舵机角度
+    pit_ms_init(CCU61_CH0, 5);
     // 初始化PIT定时器，用于定时读取速度，周期5ms
     pit_ms_init(CCU60_CH1, 5); // 定时读取速度
     // 初始化PIT定时器，用于按键扫描，周期5ms
     pit_ms_init(CCU60_CH0, 5); // 按键扫描
-    
+
     // 设置初始目标速度为左右轮各40
     Target_Speed_Control(40, 40); // 设定速度
     // �˴���д�û����� ���������ʼ�������
