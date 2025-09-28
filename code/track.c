@@ -63,8 +63,7 @@ int16 limit1(int16 x, int16 y)
         return x;
 }
 
-/*变量声明*/
-#define use_num 1 // 1就是不压缩，2就是压缩一倍
+
 
 /*
 函数名称：void get_start_point(uint8 start_row)
@@ -482,7 +481,7 @@ uint8 line_detected = 0;
  */
 void calculate_deviation(void)
 {
-//    uint8 i;
+    //    uint8 i;
     uint16 middle_row = IMAGE_HEIGHT * 3 / 4; // 取图像下半部分的中间行作为控制行
     int16 target_center = IMAGE_WIDTH / 2;    // 目标中点
 
@@ -594,41 +593,41 @@ void track_process(void)
     // 显示处理后的图像
     tft180_displayimage03x((const uint8 *)bin_image, 160, 128);
 
-
-//    // 根据循环次数画出边界点
-//        for (uint16 i = 0; i < data_stastics_l; i++)
-//        {
-//            // 限制x坐标在显示屏范围内(0-159)
-//            uint16 x = limit_a_b(points_l[i][0] + 2, 0, 159);
-//            // 限制y坐标在显示屏范围内(0-127)
-//            uint16 y = limit_a_b(points_l[i][1], 0, 127);
-//            tft180_draw_point(x, y, RGB565_BLUE); // 显示左边起点
-//        }
-//        for (i = 0; i < data_stastics_r; i++)
-//        {
-//            // 限制x坐标在显示屏范围内(0-159)
-//            uint16 x = limit_a_b(points_r[i][0] - 2, 0, 159);
-//            // 限制y坐标在显示屏范围内(0-127)
-//            uint16 y = limit_a_b(points_r[i][1], 0, 127);
-//            tft180_draw_point(x, y, RGB565_RED); // 显示右边起点
-//        }
-//
-//        // 显示中线和左右边界，限制在显示屏高度范围内(0-127)
-//        for (i = hightest; i < 128; i++)
-//        {
-//            center_line[i] = (l_border[i] + r_border[i]) >> 1; // 求中线
-//            // 求中线最好最后求，不管是补线还是做状态机，全程最好使用一组边线，中线最后求出，不能干扰最后的输出
-//            // 当然也有多组边线的找法，但是个人感觉很繁琐，不建议
-//
-//            // 限制所有坐标在显示屏范围内
-//            uint16 center_x = limit_a_b(center_line[i], 0, 159);
-//            uint16 l_x = limit_a_b(l_border[i], 0, 159);
-//            uint16 r_x = limit_a_b(r_border[i], 0, 159);
-//            uint16 y = limit_a_b(i, 0, 127);
-//            tft180_draw_point(center_x, y, RGB565_CYAN); // 显示中线
-//            tft180_draw_point(l_x, y, RGB565_GREEN);   // 显示左边线
-//            tft180_draw_point(r_x, y, RGB565_GREEN);   // 显示右边线
-//        }
+    //    // 根据循环次数画出边界点
+    //        for (uint16 i = 0; i < data_stastics_l; i++)
+    //        {
+    //            // 限制x坐标在显示屏范围内(0-159)
+    //            uint16 x = limit_a_b(points_l[i][0] + 2, 0, 159);
+    //            // 限制y坐标在显示屏范围内(0-127)
+    //            uint16 y = limit_a_b(points_l[i][1], 0, 127);
+    //            tft180_draw_point(x, y, RGB565_BLUE); // 显示左边起点
+    //        }
+    //        for (i = 0; i < data_stastics_r; i++)
+    //        {
+    //            // 限制x坐标在显示屏范围内(0-159)
+    //            uint16 x = limit_a_b(points_r[i][0] - 2, 0, 159);
+    //            // 限制y坐标在显示屏范围内(0-127)
+    //            uint16 y = limit_a_b(points_r[i][1], 0, 127);
+    //            tft180_draw_point(x, y, RGB565_RED); // 显示右边起点
+    //        }
+    //
+    //        // 显示中线和左右边界，限制在显示屏高度范围内(0-127)
+    //        for (i = hightest; i < 128; i++)
+    //        {
+    //            center_line[i] = (l_border[i] + r_border[i]) >> 1; // 求中线
+    //            // 求中线最好最后求，不管是补线还是做状态机，全程最好使用一组边线，中线最后求出，不能干扰最后的输出
+    //            // 当然也有多组边线的找法，但是个人感觉很繁琐，不建议
+    //
+    //            // 使用与tft180_show_gray_image相同的坐标缩放逻辑，确保与二值化图像显示对齐
+    //            // 注意：原始图像大小为188×120，显示大小为160×128
+    //            uint16 center_x = limit_a_b((center_line[i] * 160) / 188, 0, 159);
+    //            uint16 l_x = limit_a_b((l_border[i] * 160) / 188, 0, 159);
+    //            uint16 r_x = limit_a_b((r_border[i] * 160) / 188, 0, 159);
+    //            uint16 y = limit_a_b((i * 128) / 120, 0, 127);
+    //            tft180_draw_point(center_x, y, RGB565_CYAN); // 显示中线
+    //            tft180_draw_point(l_x, y, RGB565_GREEN);   // 显示左边线
+    //            tft180_draw_point(r_x, y, RGB565_GREEN);   // 显示右边线
+    //        }
     for (uint16 i = 0; i < data_stastics_l; i++)
     {
         // 使用与tft180_show_gray_image相同的坐标缩放逻辑，确保与二值化图像显示对齐
@@ -657,7 +656,12 @@ void track_process(void)
         uint16 l_x = limit_a_b((l_border[i] * 160) / 188, 0, 159);
         uint16 r_x = limit_a_b((r_border[i] * 160) / 188, 0, 159);
         uint16 y = limit_a_b((i * 128) / 120, 0, 127);
-        tft180_draw_point(center_x, y, RGB565_CYAN); // 显示中线
+        // 根据环岛状态设置中线颜色
+        if (circle_state != CIRCLE_NONE) {
+            tft180_draw_point(center_x, y, RGB565_PURPLE); // 环岛内显示紫色中线
+        } else {
+            tft180_draw_point(center_x, y, RGB565_CYAN); // 非环岛显示青色中线
+        }
         tft180_draw_point(l_x, y, RGB565_GREEN);     // 显示左边线
         tft180_draw_point(r_x, y, RGB565_GREEN);     // 显示右边线
     }
@@ -683,28 +687,11 @@ y值最大*******************************************(188.120)
 
 // 环岛处理相关代码
 
-// 环岛状态机定义
-enum CIRCLE_STATE {
-    CIRCLE_NONE = 0,        // 无环岛状态
-    CIRCLE_ENTRY,           // 进入环岛状态
-    CIRCLE_ON_TRACK,        // 在环岛内正常行驶
-    CIRCLE_EXIT_DETECT,     // 检测环岛出口
-    CIRCLE_EXIT             // 离开环岛状态
-};
-
 // 环岛相关全局变量
-enum CIRCLE_STATE circle_state = CIRCLE_NONE;  // 当前环岛状态
-uint8 circle_entry_count = 0;                  // 进入环岛计数
-uint8 circle_exit_count = 0;                   // 离开环岛计数
-uint8 circle_exit_detected = 0;                // 出口检测标志
-
-// 环岛检测参数
-#define CIRCLE_ENTRY_THRESHOLD 3                // 进入环岛判断阈值
-#define CIRCLE_EXIT_THRESHOLD 3                 // 离开环岛判断阈值
-#define CIRCLE_ENTRY_WIDTH_THRESHOLD 40         // 环岛入口宽度阈值
-#define CIRCLE_EXIT_WIDTH_THRESHOLD 30          // 环岛出口宽度阈值
-#define CIRCLE_BOTTOM_LINE 90                   // 图像底部检测线
-#define CIRCLE_TOP_LINE 30                      // 图像顶部检测线
+enum CIRCLE_STATE circle_state = CIRCLE_NONE; // 当前环岛状态
+uint8 circle_entry_count = 0;                 // 进入环岛计数
+uint8 circle_exit_count = 0;                  // 离开环岛计数
+uint8 circle_exit_detected = 0;               // 出口检测标志
 
 /**
  * @brief 检测环岛入口
@@ -722,9 +709,9 @@ uint8 detect_circle_entry(void)
             width_sum++;
         }
     }
-    
+
     // 检查左右边界是否呈现环岛入口特征
-    if (width_sum > (image_h - CIRCLE_BOTTOM_LINE) * 0.7)  // 70%的线满足宽度条件
+    if (width_sum > (image_h - CIRCLE_BOTTOM_LINE) * 0.7) // 70%的线满足宽度条件
     {
         circle_entry_count++;
         if (circle_entry_count >= CIRCLE_ENTRY_THRESHOLD)
@@ -736,7 +723,7 @@ uint8 detect_circle_entry(void)
     {
         circle_entry_count = 0;
     }
-    
+
     return 0;
 }
 
@@ -751,11 +738,11 @@ uint8 detect_circle_exit(void)
     {
         return 1;
     }
-    
+
     // 检查是否有出口特征：底部宽度变窄，顶部保持宽线
     uint8 bottom_narrow_count = 0;
     uint8 top_wide_count = 0;
-    
+
     // 检查底部区域宽度是否变窄
     for (uint8 y = CIRCLE_BOTTOM_LINE; y < image_h; y++)
     {
@@ -765,7 +752,7 @@ uint8 detect_circle_exit(void)
             bottom_narrow_count++;
         }
     }
-    
+
     // 检查顶部区域是否保持宽线
     for (uint8 y = 0; y < CIRCLE_TOP_LINE; y++)
     {
@@ -775,9 +762,9 @@ uint8 detect_circle_exit(void)
             top_wide_count++;
         }
     }
-    
+
     // 判断是否满足出口条件
-    if (bottom_narrow_count > (image_h - CIRCLE_BOTTOM_LINE) * 0.7 && 
+    if (bottom_narrow_count > (image_h - CIRCLE_BOTTOM_LINE) * 0.7 &&
         top_wide_count > CIRCLE_TOP_LINE * 0.7)
     {
         circle_exit_count++;
@@ -791,7 +778,7 @@ uint8 detect_circle_exit(void)
     {
         circle_exit_count = 0;
     }
-    
+
     return 0;
 }
 
@@ -802,61 +789,61 @@ void circle_process(void)
 {
     switch (circle_state)
     {
-        case CIRCLE_NONE:
-            // 检测是否进入环岛
-            if (detect_circle_entry())
-            {
-                circle_state = CIRCLE_ENTRY;
-                // 进入环岛时的处理：降低速度、调整方向等
-                target_speed = 40;  // 进入环岛减速
-            }
-            break;
-            
-        case CIRCLE_ENTRY:
-            // 进入环岛后的稳定行驶
-            if (!detect_circle_entry())
-            {
-                circle_state = CIRCLE_ON_TRACK;
-                // 环岛内正常行驶速度
-                target_speed = 50;
-            }
-            break;
-            
-        case CIRCLE_ON_TRACK:
-            // 检测是否到达出口
-            if (detect_circle_exit())
-            {
-                circle_state = CIRCLE_EXIT_DETECT;
-                // 检测到出口时的处理
-            }
-            break;
-            
-        case CIRCLE_EXIT_DETECT:
-            // 确认出口并准备离开
-            if (detect_circle_exit())
-            {
-                circle_state = CIRCLE_EXIT;
-                // 离开环岛时的处理
-            }
-            break;
-            
-        case CIRCLE_EXIT:
-            // 离开环岛后的恢复
-            if (!detect_circle_exit())
-            {
-                // 重置环岛状态
-                circle_state = CIRCLE_NONE;
-                circle_entry_count = 0;
-                circle_exit_count = 0;
-                circle_exit_detected = 0;
-                // 恢复正常行驶速度
-                target_speed = 60;
-            }
-            break;
-            
-        default:
+    case CIRCLE_NONE:
+        // 检测是否进入环岛
+        if (detect_circle_entry())
+        {
+            circle_state = CIRCLE_ENTRY;
+            // 进入环岛时的处理：降低速度、调整方向等
+            target_speed = 40; // 进入环岛减速
+        }
+        break;
+
+    case CIRCLE_ENTRY:
+        // 进入环岛后的稳定行驶
+        if (!detect_circle_entry())
+        {
+            circle_state = CIRCLE_ON_TRACK;
+            // 环岛内正常行驶速度
+            target_speed = 50;
+        }
+        break;
+
+    case CIRCLE_ON_TRACK:
+        // 检测是否到达出口
+        if (detect_circle_exit())
+        {
+            circle_state = CIRCLE_EXIT_DETECT;
+            // 检测到出口时的处理
+        }
+        break;
+
+    case CIRCLE_EXIT_DETECT:
+        // 确认出口并准备离开
+        if (detect_circle_exit())
+        {
+            circle_state = CIRCLE_EXIT;
+            // 离开环岛时的处理
+        }
+        break;
+
+    case CIRCLE_EXIT:
+        // 离开环岛后的恢复
+        if (!detect_circle_exit())
+        {
+            // 重置环岛状态
             circle_state = CIRCLE_NONE;
-            break;
+            circle_entry_count = 0;
+            circle_exit_count = 0;
+            circle_exit_detected = 0;
+            // 恢复正常行驶速度
+            target_speed = 60;
+        }
+        break;
+
+    default:
+        circle_state = CIRCLE_NONE;
+        break;
     }
 }
 
@@ -867,7 +854,7 @@ void track_process_with_circle(void)
 {
     // 先执行常规巡线处理
     track_process();
-    
+
     // 根据环岛状态进行处理
     circle_process();
 }
