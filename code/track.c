@@ -63,8 +63,6 @@ int16 limit1(int16 x, int16 y)
         return x;
 }
 
-
-
 /*
 函数名称：void get_start_point(uint8 start_row)
 功能说明：寻找两个边界的边界点作为八邻域循环的起始点
@@ -507,31 +505,31 @@ void calculate_deviation(void)
     }
 }
 
-/*
-函数名称：void track_control(void)
-功能说明：根据路径偏差值控制小车行驶
-参数说明：无
-函数返回：无
- */
-void track_control(void)
-{
-    if (line_detected)
-    {
-        // 根据偏差值调整左右轮速度
-        int16 left_adjust = track_deviation * 0.8;   // 左轮调整系数
-        int16 right_adjust = -track_deviation * 0.8; // 右轮调整系数
+// /*
+// 函数名称：void track_control(void)
+// 功能说明：根据路径偏差值控制小车行驶
+// 参数说明：无
+// 函数返回：无
+//  */
+// void track_control(void)
+// {
+//     if (line_detected)
+//     {
+//         // 根据偏差值调整左右轮速度
+//         int16 left_adjust = track_deviation * 0.8;   // 左轮调整系数
+//         int16 right_adjust = -track_deviation * 0.8; // 右轮调整系数
 
-        // 应用调整并限制范围
-        target_left = limit_a_b(speedleft + left_adjust, 0, 100);
-        target_right = limit_a_b(speedright + right_adjust, 0, 100);
-    }
-    else
-    {
-        // 未检测到路径，减速并尝试寻找
-        target_left = limit_a_b(speedleft * 0.6, 0, 100);
-        target_right = limit_a_b(speedright * 0.6, 0, 100);
-    }
-}
+//         // 应用调整并限制范围
+//         target_left = limit_a_b(speedleft + left_adjust, 0, 100);
+//         target_right = limit_a_b(speedright + right_adjust, 0, 100);
+//     }
+//     else
+//     {
+//         // 未检测到路径，减速并尝试寻找
+//         target_left = limit_a_b(speedleft * 0.6, 0, 100);
+//         target_right = limit_a_b(speedright * 0.6, 0, 100);
+//     }
+// }
 
 /*
 函数名称：void track_process(void)
@@ -581,7 +579,7 @@ void track_process(void)
         calculate_deviation();
 
         // 控制小车行驶
-        track_control();
+        // track_control();
     }
     else
     {
@@ -657,13 +655,16 @@ void track_process(void)
         uint16 r_x = limit_a_b((r_border[i] * 160) / 188, 0, 159);
         uint16 y = limit_a_b((i * 128) / 120, 0, 127);
         // 根据环岛状态设置中线颜色
-        if (circle_state != CIRCLE_NONE) {
+        if (circle_state != CIRCLE_NONE)
+        {
             tft180_draw_point(center_x, y, RGB565_PURPLE); // 环岛内显示紫色中线
-        } else {
+        }
+        else
+        {
             tft180_draw_point(center_x, y, RGB565_CYAN); // 非环岛显示青色中线
         }
-        tft180_draw_point(l_x, y, RGB565_GREEN);     // 显示左边线
-        tft180_draw_point(r_x, y, RGB565_GREEN);     // 显示右边线
+        tft180_draw_point(l_x, y, RGB565_GREEN); // 显示左边线
+        tft180_draw_point(r_x, y, RGB565_GREEN); // 显示右边线
     }
 }
 
