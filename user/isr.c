@@ -90,7 +90,7 @@ IFX_INTERRUPT(cc61_pit_ch0_isr, 0, CCU6_1_CH0_ISR_PRIORITY)
 {
     interrupt_global_enable(0); // 开启中断嵌套
     pit_clear_flag(CCU61_CH0);  // 清除PIT中断标志位
-    Positional_PID_Calc(&angle,0,distance );
+    // Positional_PID_Calc(&angle,0,distance );
 }
 
 /*

@@ -1,5 +1,6 @@
 #include "server.h"
-//#include "global.h"
+#include "track.h"
+// #include "global.h"
 #include "zf_common_headfile.h"
 
 /*
@@ -11,7 +12,7 @@
 void server_init()
 {
     // 初始化PWM通道，频率50Hz，初始占空比768（对应舵机中位）
-    pwm_init(ATOM0_CH1_P33_9,50,768);
+    pwm_init(ATOM0_CH1_P33_9, 50, 768);
 }
 
 /*
@@ -24,5 +25,17 @@ void server_init()
 void steer_control(float PWM)
 {
     // 设置舵机PWM通道的占空比
-    pwm_set_duty(ATOM0_CH1_P33_9,PWM);
+    pwm_set_duty(ATOM0_CH1_P33_9, PWM);
+}
+void pid_steer_control()
+{
+    if (line_detected)
+    {
+        float pid_output = Positional_PID_Calc(&angle, 0, track_deviation);
+        float base_pwm = 768f;
+        float target_pwm = base_pwm + pid_output;
+        target_pwm = limit_a_b(target_pwm, 568.0f, 968.0f);
+        // 舵机控制
+        steer_control(target_pwm);
+    }
 }
