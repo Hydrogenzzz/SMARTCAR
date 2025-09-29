@@ -551,7 +551,6 @@ void track_process(void)
     // 滤波和预处理
     image_filter(bin_image);
     image_draw_rectan(bin_image);
-
     // 清零计数
     data_stastics_l = 0;
     data_stastics_r = 0;
@@ -588,41 +587,6 @@ void track_process(void)
     // 显示处理后的图像
     tft180_displayimage03x((const uint8 *)bin_image, 160, 128);
 
-    //    // 根据循环次数画出边界点
-    //        for (uint16 i = 0; i < data_stastics_l; i++)
-    //        {
-    //            // 限制x坐标在显示屏范围内(0-159)
-    //            uint16 x = limit_a_b(points_l[i][0] + 2, 0, 159);
-    //            // 限制y坐标在显示屏范围内(0-127)
-    //            uint16 y = limit_a_b(points_l[i][1], 0, 127);
-    //            tft180_draw_point(x, y, RGB565_BLUE); // 显示左边起点
-    //        }
-    //        for (i = 0; i < data_stastics_r; i++)
-    //        {
-    //            // 限制x坐标在显示屏范围内(0-159)
-    //            uint16 x = limit_a_b(points_r[i][0] - 2, 0, 159);
-    //            // 限制y坐标在显示屏范围内(0-127)
-    //            uint16 y = limit_a_b(points_r[i][1], 0, 127);
-    //            tft180_draw_point(x, y, RGB565_RED); // 显示右边起点
-    //        }
-    //
-    //        // 显示中线和左右边界，限制在显示屏高度范围内(0-127)
-    //        for (i = hightest; i < 128; i++)
-    //        {
-    //            center_line[i] = (l_border[i] + r_border[i]) >> 1; // 求中线
-    //            // 求中线最好最后求，不管是补线还是做状态机，全程最好使用一组边线，中线最后求出，不能干扰最后的输出
-    //            // 当然也有多组边线的找法，但是个人感觉很繁琐，不建议
-    //
-    //            // 使用与tft180_show_gray_image相同的坐标缩放逻辑，确保与二值化图像显示对齐
-    //            // 注意：原始图像大小为188×120，显示大小为160×128
-    //            uint16 center_x = limit_a_b((center_line[i] * 160) / 188, 0, 159);
-    //            uint16 l_x = limit_a_b((l_border[i] * 160) / 188, 0, 159);
-    //            uint16 r_x = limit_a_b((r_border[i] * 160) / 188, 0, 159);
-    //            uint16 y = limit_a_b((i * 128) / 120, 0, 127);
-    //            tft180_draw_point(center_x, y, RGB565_CYAN); // 显示中线
-    //            tft180_draw_point(l_x, y, RGB565_GREEN);   // 显示左边线
-    //            tft180_draw_point(r_x, y, RGB565_GREEN);   // 显示右边线
-    //        }
     for (uint16 i = 0; i < data_stastics_l; i++)
     {
         // 使用与tft180_show_gray_image相同的坐标缩放逻辑，确保与二值化图像显示对齐
@@ -665,23 +629,6 @@ void track_process(void)
     }
 }
 
-/*
-
-这里是起点（0.0）***************——>*************x值最大
-************************************************************
-************************************************************
-************************************************************
-************************************************************
-******************假如这是一副图像*************************
-***********************************************************
-***********************************************************
-***********************************************************
-***********************************************************
-***********************************************************
-***********************************************************
-y值最大*******************************************(188.120)
-
-*/
 
 // 环岛处理相关代码
 
@@ -793,7 +740,7 @@ void circle_process(void)
         {
             circle_state = CIRCLE_ENTRY;
             // 进入环岛时的处理：降低速度、调整方向等
-            target_speed = 40; // 进入环岛减速
+            Target_Speed_Control(40,40); // 进入环岛减速
         }
         break;
 
@@ -803,7 +750,7 @@ void circle_process(void)
         {
             circle_state = CIRCLE_ON_TRACK;
             // 环岛内正常行驶速度
-            target_speed = 50;
+            Target_Speed_Control(50,50);
         }
         break;
 
@@ -835,7 +782,7 @@ void circle_process(void)
             circle_exit_count = 0;
             circle_exit_detected = 0;
             // 恢复正常行驶速度
-            target_speed = 60;
+            Target_Speed_Control(60,60);
         }
         break;
 

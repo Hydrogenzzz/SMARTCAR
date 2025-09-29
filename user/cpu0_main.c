@@ -92,8 +92,8 @@ int core0_main(void)
     // 初始化PIT定时器，用于按键扫描，周期5ms
     pit_ms_init(CCU60_CH0, 5); // 按键扫描
 
-    // 设置初始目标速度为左右轮各40
-    Target_Speed_Control(40, 40); // 设定速度
+    // 设置初始目标速度为左右轮各60
+    Target_Speed_Control(60, 60); // 设定速度
     // �˴���д�û����� ���������ʼ�������
     cpu_wait_event_ready(); // �ȴ����к��ĳ�ʼ�����
     while (TRUE)
@@ -101,16 +101,12 @@ int core0_main(void)
         // �˴���д��Ҫѭ��ִ�еĴ���
         // key_action();
         // menu_refresh(); // ������Ϊ�˵���ʼ���ı�Ҫ����
-        // Motor_Control(1000,1000);
-        // steer_control(768);
-        // printf("%f,%f\n",speedleft,speedright);
         if (mt9v03x_finish_flag)
         {
             mt9v03x_finish_flag = 0;
             otsuThreshold(&mt9v03x_image, &bin_image);
-            track_process(); // ִ��巡线处理
+            track_process(); // ִ巡线处理
             // 图像显示已移至track.c中的track_process函数内
-            // tft180_displayimage03x((const uint8 *)bin_image, 160, 128);
         }
         // �˴���д��Ҫѭ��ִ�еĴ���
     }
