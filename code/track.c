@@ -8,6 +8,7 @@
 #include "pid.h"
 #include "zf_device_tft180.h"
 #include "track.h"
+#include "server.h"
 // RGB565颜色定义
 #define RGB565_RED 0xF800    // 红色
 #define RGB565_GREEN 0x07E0  // 绿色
@@ -575,11 +576,7 @@ void track_process(void)
             }
         }
 
-        // 计算路径偏差
-        calculate_deviation();
 
-        // 控制小车行驶
-        // track_control();
     }
     else
     {

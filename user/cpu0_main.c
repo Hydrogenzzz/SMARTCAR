@@ -101,7 +101,7 @@ int core0_main(void)
         // �˴���д��Ҫѭ��ִ�еĴ���
         // key_action();
         // menu_refresh(); // ������Ϊ�˵���ʼ���ı�Ҫ����
-        //        Motor_Control(1000,1000);
+        // Motor_Control(1000,1000);
         // steer_control(768);
         // printf("%f,%f\n",speedleft,speedright);
         if (mt9v03x_finish_flag)
