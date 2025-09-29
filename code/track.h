@@ -62,6 +62,10 @@ extern enum CIRCLE_STATE circle_state; // 当前环岛状态
 extern uint8 circle_entry_count;       // 进入环岛计数
 extern uint8 circle_exit_count;        // 离开环岛计数
 extern uint8 circle_exit_detected;     // 出口检测标志
+extern uint8 flag_r_cir;               // 右环岛标志
+extern uint8 flag_l_cir;               // 左环岛标志
+extern uint8_t cir_stage;              // 环岛阶段标志
+extern uint8_t cir_x, cir_y;           // 环岛中心点坐标
 
 // 环岛检测参数
 extern uint8 target_speed; // 目标速度
@@ -71,5 +75,11 @@ extern uint8 detect_circle_entry(void);      // 检测环岛入口
 extern uint8 detect_circle_exit(void);       // 检测环岛出口
 extern void circle_process(void);            // 环岛处理主函数
 extern void track_process_with_circle(void); // 带环岛处理的巡线函数
+extern uint8 Cir1_judge(void);               // 判断右环岛
+extern uint8 Cir2_judge(void);               // 判断左环岛
+extern void cir_point(void);                 // 计算环岛中心点
+extern void circle_line_complement(void);    // 环岛补线处理
+extern void Cir_r_handle(void);              // 右环岛处理
+extern void Cir_l_handle(void);              // 左环岛处理
 
 #endif /*_TRACK_H_*/

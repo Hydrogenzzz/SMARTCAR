@@ -637,14 +637,263 @@ enum CIRCLE_STATE circle_state = CIRCLE_NONE; // 当前环岛状态
 uint8 circle_entry_count = 0;                 // 进入环岛计数
 uint8 circle_exit_count = 0;                  // 离开环岛计数
 uint8 circle_exit_detected = 0;               // 出口检测标志
+uint8 flag_r_cir = 0;                         // 右环岛标志
+uint8 flag_l_cir = 0;                         // 左环岛标志
+uint8_t cir_stage = 0;                        // 环岛阶段标志
+uint8_t cir_x = 0, cir_y = 0;                 // 环岛中心点坐标
 
 /**
- * @brief 检测环岛入口
+ * @brief 判断右环岛
+ * @return uint8 1表示检测到右环岛，0表示未检测到
+ */
+uint8 Cir1_judge(void)
+{
+    uint8 i, j;
+    uint8 count = 0;
+    
+    // 检测图像上部区域是否有右环岛特征
+    for (i = 5; i < 20; i++)
+    {
+        for (j = IMAGE_WIDTH/2; j < IMAGE_WIDTH-5; j++)
+        {
+            if (bin_image[i][j] == 0 && bin_image[i+1][j] == 255 && bin_image[i-1][j] == 255)
+            {
+                count++;
+            }
+        }
+    }
+    
+    if (count > 10) // 阈值可调整
+    {
+        return 1;
+    }
+    return 0;
+}
+
+/**
+ * @brief 判断左环岛
+ * @return uint8 1表示检测到左环岛，0表示未检测到
+ */
+uint8 Cir2_judge(void)
+{
+    uint8 i, j;
+    uint8 count = 0;
+    
+    // 检测图像上部区域是否有左环岛特征
+    for (i = 5; i < 20; i++)
+    {
+        for (j = 5; j < IMAGE_WIDTH/2; j++)
+        {
+            if (bin_image[i][j] == 0 && bin_image[i+1][j] == 255 && bin_image[i-1][j] == 255)
+            {
+                count++;
+            }
+        }
+    }
+    
+    if (count > 10) // 阈值可调整
+    {
+        return 1;
+    }
+    return 0;
+}
+
+/**
+ * @brief 计算环岛中心点
+ */
+void cir_point(void)
+{
+    uint8_t i = 0;
+    float sum_x = 0, sum_y = 0;
+    uint8_t num = 0;
+    
+    for (i = 0; i < image_h - 30; i++)
+    {
+        if (l_border[i] != border_min && r_border[i] != border_max)
+        {
+            sum_x = sum_x + (l_border[i] + r_border[i]) / 2;
+            sum_y = sum_y + i;
+            num++;
+        }
+    }
+    
+    if (num != 0)
+    {
+        cir_x = (sum_x) / (num);
+        cir_y = (sum_y) / (num);
+    }
+}
+
+/**
+ * @brief 环岛补线处理
+ */
+void circle_line_complement(void)
+{
+    uint8 i = 0;
+    
+    for (i = 0; i < image_h - 10; i++)
+    {
+        // 当左边界丢失时，根据右边界和预设宽度推算左边界
+        if (l_border[i] <= border_min)
+        {
+            l_border[i] = r_border[i] - 60; // 预设宽度可调整
+            if (l_border[i] < border_min)
+                l_border[i] = border_min;
+        }
+        
+        // 当右边界丢失时，根据左边界和预设宽度推算右边界
+        if (r_border[i] >= border_max)
+        {
+            r_border[i] = l_border[i] + 60; // 预设宽度可调整
+            if (r_border[i] > border_max)
+                r_border[i] = border_max;
+        }
+    }
+}
+
+/**
+ * @brief 右环岛处理
+ */
+void Cir_r_handle(void)
+{
+    uint8 i = 0;
+    
+    // 7阶段右环岛状态机
+    switch (cir_stage)
+    {
+        case 0:
+            // 初始阶段：检测到右环岛
+            if (Cir1_judge())
+            {
+                flag_r_cir = 1;
+                cir_stage = 1;
+            }
+            break;
+            
+        case 1:
+            // 进入环岛：减速并调整方向
+            Target_Speed_Control(35, 45); // 轻微右偏
+            if (circle_state == CIRCLE_ON_TRACK)
+                cir_stage = 2;
+            break;
+            
+        case 2:
+            // 环岛内稳定行驶
+            Target_Speed_Control(40, 50);
+            if (detect_circle_exit())
+                cir_stage = 3;
+            break;
+            
+        case 3:
+            // 检测到出口：准备转向
+            Target_Speed_Control(35, 45);
+            cir_stage = 4;
+            break;
+            
+        case 4:
+            // 出口转向
+            Target_Speed_Control(30, 50);
+            if (!detect_circle_exit())
+                cir_stage = 5;
+            break;
+            
+        case 5:
+            // 离开环岛：恢复直线行驶
+            Target_Speed_Control(45, 45);
+            cir_stage = 6;
+            break;
+            
+        case 6:
+            // 重置状态
+            flag_r_cir = 0;
+            cir_stage = 0;
+            break;
+    }
+}
+
+/**
+ * @brief 左环岛处理
+ */
+void Cir_l_handle(void)
+{
+    uint8 i = 0;
+    
+    // 7阶段左环岛状态机
+    switch (cir_stage)
+    {
+        case 0:
+            // 初始阶段：检测到左环岛
+            if (Cir2_judge())
+            {
+                flag_l_cir = 1;
+                cir_stage = 1;
+            }
+            break;
+            
+        case 1:
+            // 进入环岛：减速并调整方向
+            Target_Speed_Control(45, 35); // 轻微左偏
+            if (circle_state == CIRCLE_ON_TRACK)
+                cir_stage = 2;
+            break;
+            
+        case 2:
+            // 环岛内稳定行驶
+            Target_Speed_Control(50, 40);
+            if (detect_circle_exit())
+                cir_stage = 3;
+            break;
+            
+        case 3:
+            // 检测到出口：准备转向
+            Target_Speed_Control(45, 35);
+            cir_stage = 4;
+            break;
+            
+        case 4:
+            // 出口转向
+            Target_Speed_Control(50, 30);
+            if (!detect_circle_exit())
+                cir_stage = 5;
+            break;
+            
+        case 5:
+            // 离开环岛：恢复直线行驶
+            Target_Speed_Control(45, 45);
+            cir_stage = 6;
+            break;
+            
+        case 6:
+            // 重置状态
+            flag_l_cir = 0;
+            cir_stage = 0;
+            break;
+    }
+}
+
+/**
+ * @brief 基于像素模式检测环岛入口
  * @return uint8 1表示检测到入口，0表示未检测到
  */
 uint8 detect_circle_entry(void)
 {
-    // 检查底部区域是否有宽线特征
+    // 1. 基于特定像素模式检测
+    uint8 i = 0, j = 0;
+    uint8 count = 0;
+    
+    // 检测是否存在环岛特征：查找 "黑-白-黑" 的垂直像素排列模式
+    for (i = 5; i < 20; i++)
+    {
+        for (j = 5; j < IMAGE_WIDTH - 5; j++)
+        {
+            if (bin_image[i][j] == 0 && bin_image[i+1][j] == 255 && bin_image[i-1][j] == 255)
+            {
+                count++;
+            }
+        }
+    }
+    
+    // 2. 结合边界宽度特征检测
     uint8 width_sum = 0;
     for (uint8 y = CIRCLE_BOTTOM_LINE; y < image_h; y++)
     {
@@ -654,13 +903,18 @@ uint8 detect_circle_entry(void)
             width_sum++;
         }
     }
-
-    // 检查左右边界是否呈现环岛入口特征
-    if (width_sum > (image_h - CIRCLE_BOTTOM_LINE) * 0.7) // 70%的线满足宽度条件
+    
+    // 两种检测方法结合，提高可靠性
+    if ((count > 15 || width_sum > (image_h - CIRCLE_BOTTOM_LINE) * 0.7))
     {
         circle_entry_count++;
         if (circle_entry_count >= CIRCLE_ENTRY_THRESHOLD)
         {
+            // 区分左右环岛
+            if (Cir1_judge())
+                flag_r_cir = 1;
+            else if (Cir2_judge())
+                flag_l_cir = 1;
             return 1;
         }
     }
@@ -668,12 +922,12 @@ uint8 detect_circle_entry(void)
     {
         circle_entry_count = 0;
     }
-
+    
     return 0;
 }
 
 /**
- * @brief 检测环岛出口
+ * @brief 基于像素模式检测环岛出口
  * @return uint8 1表示检测到出口，0表示未检测到
  */
 uint8 detect_circle_exit(void)
@@ -683,11 +937,27 @@ uint8 detect_circle_exit(void)
     {
         return 1;
     }
-
-    // 检查是否有出口特征：底部宽度变窄，顶部保持宽线
+    
+    // 1. 基于特定像素模式检测
+    uint8 i = 0, j = 0;
+    uint8 count = 0;
+    
+    // 检测是否存在环岛出口特征：查找 "白-黑-白" 的垂直像素排列模式
+    for (i = 5; i < 20; i++)
+    {
+        for (j = 5; j < IMAGE_WIDTH - 5; j++)
+        {
+            if (bin_image[i][j] == 255 && bin_image[i+1][j] == 0 && bin_image[i-1][j] == 0)
+            {
+                count++;
+            }
+        }
+    }
+    
+    // 2. 结合边界宽度特征检测
     uint8 bottom_narrow_count = 0;
     uint8 top_wide_count = 0;
-
+    
     // 检查底部区域宽度是否变窄
     for (uint8 y = CIRCLE_BOTTOM_LINE; y < image_h; y++)
     {
@@ -697,7 +967,7 @@ uint8 detect_circle_exit(void)
             bottom_narrow_count++;
         }
     }
-
+    
     // 检查顶部区域是否保持宽线
     for (uint8 y = 0; y < CIRCLE_TOP_LINE; y++)
     {
@@ -707,10 +977,10 @@ uint8 detect_circle_exit(void)
             top_wide_count++;
         }
     }
-
-    // 判断是否满足出口条件
-    if (bottom_narrow_count > (image_h - CIRCLE_BOTTOM_LINE) * 0.7 &&
-        top_wide_count > CIRCLE_TOP_LINE * 0.7)
+    
+    // 两种检测方法结合，提高可靠性
+    if (count > 15 || (bottom_narrow_count > (image_h - CIRCLE_BOTTOM_LINE) * 0.7 &&
+        top_wide_count > CIRCLE_TOP_LINE * 0.7))
     {
         circle_exit_count++;
         if (circle_exit_count >= CIRCLE_EXIT_THRESHOLD)
@@ -723,7 +993,7 @@ uint8 detect_circle_exit(void)
     {
         circle_exit_count = 0;
     }
-
+    
     return 0;
 }
 
@@ -732,57 +1002,77 @@ uint8 detect_circle_exit(void)
  */
 void circle_process(void)
 {
+    static uint16 circle_timer = 0;
+    
+    // 计算环岛中心点
+    cir_point();
+    
+    // 进行环岛补线处理
+    circle_line_complement();
+    
     switch (circle_state)
     {
     case CIRCLE_NONE:
-        // 检测是否进入环岛
+        // 未检测到环岛
         if (detect_circle_entry())
         {
             circle_state = CIRCLE_ENTRY;
-            // 进入环岛时的处理：降低速度、调整方向等
-            Target_Speed_Control(40,40); // 进入环岛减速
+            circle_timer = 0;
+            // 进入环岛减速
+            Target_Speed_Control(40, 40);
         }
         break;
 
     case CIRCLE_ENTRY:
-        // 进入环岛后的稳定行驶
-        if (!detect_circle_entry())
+        // 进入环岛
+        circle_timer++;
+        if (circle_timer > 50) // 等待一段时间确认进入环岛
         {
             circle_state = CIRCLE_ON_TRACK;
-            // 环岛内正常行驶速度
-            Target_Speed_Control(50,50);
+            circle_timer = 0;
         }
         break;
 
     case CIRCLE_ON_TRACK:
-        // 检测是否到达出口
-        if (detect_circle_exit())
+        // 环岛内行驶
+        // 根据左右环岛进行差异化处理
+        if (flag_r_cir)
         {
-            circle_state = CIRCLE_EXIT_DETECT;
-            // 检测到出口时的处理
+            Cir_r_handle();
         }
-        break;
-
-    case CIRCLE_EXIT_DETECT:
-        // 确认出口并准备离开
+        else if (flag_l_cir)
+        {
+            Cir_l_handle();
+        }
+        else
+        {
+            // 通用环岛处理
+            Target_Speed_Control(50, 50);
+        }
+        
+        // 检测出口
         if (detect_circle_exit())
         {
             circle_state = CIRCLE_EXIT;
-            // 离开环岛时的处理
+            circle_timer = 0;
         }
         break;
 
     case CIRCLE_EXIT:
-        // 离开环岛后的恢复
-        if (!detect_circle_exit())
+        // 离开环岛
+        circle_timer++;
+        if (circle_timer > 100) // 等待一段时间确认离开环岛
         {
             // 重置环岛状态
             circle_state = CIRCLE_NONE;
             circle_entry_count = 0;
             circle_exit_count = 0;
             circle_exit_detected = 0;
+            flag_r_cir = 0;
+            flag_l_cir = 0;
+            cir_stage = 0;
             // 恢复正常行驶速度
-            Target_Speed_Control(60,60);
+            Target_Speed_Control(60, 60);
         }
         break;
 
