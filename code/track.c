@@ -19,6 +19,42 @@
 #define RGB565_WHITE 0xFFFF  // 白色
 #define RGB565_BLACK 0x0000  // 黑色
 
+/**
+ * @brief 最小二乘法
+ * @param uint8 begin				输入起点
+ * @param uint8 end					输入终点
+ * @param uint8 *border				输入需要计算斜率的边界首地址
+ *  @see CTest		Slope_Calculate(start, end, border);//斜率
+ * @return 返回说明
+ *     -<em>false</em> fail
+ *     -<em>true</em> succeed
+ */
+float Slope_Calculate(uint8 begin, uint8 end, uint8 *border)
+{
+    float xsum = 0, ysum = 0, xysum = 0, x2sum = 0;
+    int16 i = 0;
+    float result = 0;
+    static float resultlast;
+
+    for (i = begin; i < end; i++)
+    {
+        xsum += i;
+        ysum += border[i];
+        xysum += i * (border[i]);
+        x2sum += i * i;
+    }
+    if ((end - begin) * x2sum - xsum * xsum) // 判断除数是否为零
+    {
+        result = ((end - begin) * xysum - xsum * ysum) / ((end - begin) * x2sum - xsum * xsum);
+        resultlast = result;
+    }
+    else
+    {
+        result = resultlast;
+    }
+    return result;
+}
+
 /*
 函数名称：int my_abs(int value)
 功能说明：求绝对值
@@ -71,7 +107,7 @@ int16 limit1(int16 x, int16 y)
 函数返回：无
 修改时间：2022年9月8日
 备    注：
-example：  get_start_point(image_h-2)
+example：  get_start_point(IMAGE_HEIGHT-2)
  */
 uint8 start_point_l[2] = {0}; // 左边起点的x，y值
 uint8 start_point_r[2] = {0}; // 右边起点的x，y值
@@ -463,7 +499,7 @@ void image_draw_rectan(uint8 (*image)[IMAGE_WIDTH])
     {
         image[0][i] = 0;
         image[1][i] = 0;
-        // image[image_h-1][i] = 0;
+        // image[IMAGE_HEIGHT-1][i] = 0;
     }
 }
 
@@ -566,6 +602,9 @@ void track_process(void)
         get_left(data_stastics_l);
         get_right(data_stastics_r);
 
+        // 执行十字补线处理
+        cross_fill(bin_image, l_border, r_border, data_stastics_l, data_stastics_r, dir_l, dir_r, points_l, points_r);
+
         // 计算中线
         for (i = hightest; i < IMAGE_HEIGHT - 1; i++)
         {
@@ -574,8 +613,6 @@ void track_process(void)
                 center_line[i] = (l_border[i] + r_border[i]) >> 1; // 求中线
             }
         }
-
-
     }
     else
     {
@@ -629,7 +666,6 @@ void track_process(void)
     }
 }
 
-
 // 环岛处理相关代码
 
 // 环岛相关全局变量
@@ -641,6 +677,17 @@ uint8 flag_r_cir = 0;                         // 右环岛标志
 uint8 flag_l_cir = 0;                         // 左环岛标志
 uint8_t cir_stage = 0;                        // 环岛阶段标志
 uint8_t cir_x = 0, cir_y = 0;                 // 环岛中心点坐标
+uint8 target_speed = 50;
+
+// 十字相关全局变量
+int16_t length = 0;                     // 赛道长度
+int r_lose_judge[IMAGE_HEIGHT] = {0};   // 右边界丢线判断
+int l_lose_judge[IMAGE_HEIGHT] = {0};   // 左边界丢线判断
+int16_t r_lose_num = 0, l_lose_num = 0; // 左右边界丢线计数
+uint8_t flag_cross = 0;                 // 十字标志位
+uint8_t cross_stage = 0;                // 十字阶段
+uint8_t cross_timer = 0;                // 十字定时器
+uint8 lose_num = 0, nolose_num = 0;     // 丢线和非丢线计数
 
 /**
  * @brief 判断右环岛
@@ -650,19 +697,19 @@ uint8 Cir1_judge(void)
 {
     uint8 i, j;
     uint8 count = 0;
-    
+
     // 检测图像上部区域是否有右环岛特征
     for (i = 5; i < 20; i++)
     {
-        for (j = IMAGE_WIDTH/2; j < IMAGE_WIDTH-5; j++)
+        for (j = IMAGE_WIDTH / 2; j < IMAGE_WIDTH - 5; j++)
         {
-            if (bin_image[i][j] == 0 && bin_image[i+1][j] == 255 && bin_image[i-1][j] == 255)
+            if (bin_image[i][j] == 0 && bin_image[i + 1][j] == 255 && bin_image[i - 1][j] == 255)
             {
                 count++;
             }
         }
     }
-    
+
     if (count > 10) // 阈值可调整
     {
         return 1;
@@ -678,19 +725,19 @@ uint8 Cir2_judge(void)
 {
     uint8 i, j;
     uint8 count = 0;
-    
+
     // 检测图像上部区域是否有左环岛特征
     for (i = 5; i < 20; i++)
     {
-        for (j = 5; j < IMAGE_WIDTH/2; j++)
+        for (j = 5; j < IMAGE_WIDTH / 2; j++)
         {
-            if (bin_image[i][j] == 0 && bin_image[i+1][j] == 255 && bin_image[i-1][j] == 255)
+            if (bin_image[i][j] == 0 && bin_image[i + 1][j] == 255 && bin_image[i - 1][j] == 255)
             {
                 count++;
             }
         }
     }
-    
+
     if (count > 10) // 阈值可调整
     {
         return 1;
@@ -706,8 +753,8 @@ void cir_point(void)
     uint8_t i = 0;
     float sum_x = 0, sum_y = 0;
     uint8_t num = 0;
-    
-    for (i = 0; i < image_h - 30; i++)
+
+    for (i = 0; i < IMAGE_HEIGHT - 30; i++)
     {
         if (l_border[i] != border_min && r_border[i] != border_max)
         {
@@ -716,7 +763,7 @@ void cir_point(void)
             num++;
         }
     }
-    
+
     if (num != 0)
     {
         cir_x = (sum_x) / (num);
@@ -730,8 +777,8 @@ void cir_point(void)
 void circle_line_complement(void)
 {
     uint8 i = 0;
-    
-    for (i = 0; i < image_h - 10; i++)
+
+    for (i = 0; i < IMAGE_HEIGHT - 10; i++)
     {
         // 当左边界丢失时，根据右边界和预设宽度推算左边界
         if (l_border[i] <= border_min)
@@ -740,7 +787,7 @@ void circle_line_complement(void)
             if (l_border[i] < border_min)
                 l_border[i] = border_min;
         }
-        
+
         // 当右边界丢失时，根据左边界和预设宽度推算右边界
         if (r_border[i] >= border_max)
         {
@@ -757,57 +804,57 @@ void circle_line_complement(void)
 void Cir_r_handle(void)
 {
     uint8 i = 0;
-    
+
     // 7阶段右环岛状态机
     switch (cir_stage)
     {
-        case 0:
-            // 初始阶段：检测到右环岛
-            if (Cir1_judge())
-            {
-                flag_r_cir = 1;
-                cir_stage = 1;
-            }
-            break;
-            
-        case 1:
-            // 进入环岛：减速并调整方向
-            Target_Speed_Control(35, 45); // 轻微右偏
-            if (circle_state == CIRCLE_ON_TRACK)
-                cir_stage = 2;
-            break;
-            
-        case 2:
-            // 环岛内稳定行驶
-            Target_Speed_Control(40, 50);
-            if (detect_circle_exit())
-                cir_stage = 3;
-            break;
-            
-        case 3:
-            // 检测到出口：准备转向
-            Target_Speed_Control(35, 45);
-            cir_stage = 4;
-            break;
-            
-        case 4:
-            // 出口转向
-            Target_Speed_Control(30, 50);
-            if (!detect_circle_exit())
-                cir_stage = 5;
-            break;
-            
-        case 5:
-            // 离开环岛：恢复直线行驶
-            Target_Speed_Control(45, 45);
-            cir_stage = 6;
-            break;
-            
-        case 6:
-            // 重置状态
-            flag_r_cir = 0;
-            cir_stage = 0;
-            break;
+    case 0:
+        // 初始阶段：检测到右环岛
+        if (Cir1_judge())
+        {
+            flag_r_cir = 1;
+            cir_stage = 1;
+        }
+        break;
+
+    case 1:
+        // 进入环岛：减速并调整方向
+        Target_Speed_Control(35, 45); // 轻微右偏
+        if (circle_state == CIRCLE_ON_TRACK)
+            cir_stage = 2;
+        break;
+
+    case 2:
+        // 环岛内稳定行驶
+        Target_Speed_Control(40, 50);
+        if (detect_circle_exit())
+            cir_stage = 3;
+        break;
+
+    case 3:
+        // 检测到出口：准备转向
+        Target_Speed_Control(35, 45);
+        cir_stage = 4;
+        break;
+
+    case 4:
+        // 出口转向
+        Target_Speed_Control(30, 50);
+        if (!detect_circle_exit())
+            cir_stage = 5;
+        break;
+
+    case 5:
+        // 离开环岛：恢复直线行驶
+        Target_Speed_Control(45, 45);
+        cir_stage = 6;
+        break;
+
+    case 6:
+        // 重置状态
+        flag_r_cir = 0;
+        cir_stage = 0;
+        break;
     }
 }
 
@@ -817,57 +864,57 @@ void Cir_r_handle(void)
 void Cir_l_handle(void)
 {
     uint8 i = 0;
-    
+
     // 7阶段左环岛状态机
     switch (cir_stage)
     {
-        case 0:
-            // 初始阶段：检测到左环岛
-            if (Cir2_judge())
-            {
-                flag_l_cir = 1;
-                cir_stage = 1;
-            }
-            break;
-            
-        case 1:
-            // 进入环岛：减速并调整方向
-            Target_Speed_Control(45, 35); // 轻微左偏
-            if (circle_state == CIRCLE_ON_TRACK)
-                cir_stage = 2;
-            break;
-            
-        case 2:
-            // 环岛内稳定行驶
-            Target_Speed_Control(50, 40);
-            if (detect_circle_exit())
-                cir_stage = 3;
-            break;
-            
-        case 3:
-            // 检测到出口：准备转向
-            Target_Speed_Control(45, 35);
-            cir_stage = 4;
-            break;
-            
-        case 4:
-            // 出口转向
-            Target_Speed_Control(50, 30);
-            if (!detect_circle_exit())
-                cir_stage = 5;
-            break;
-            
-        case 5:
-            // 离开环岛：恢复直线行驶
-            Target_Speed_Control(45, 45);
-            cir_stage = 6;
-            break;
-            
-        case 6:
-            // 重置状态
-            flag_l_cir = 0;
-            cir_stage = 0;
-            break;
+    case 0:
+        // 初始阶段：检测到左环岛
+        if (Cir2_judge())
+        {
+            flag_l_cir = 1;
+            cir_stage = 1;
+        }
+        break;
+
+    case 1:
+        // 进入环岛：减速并调整方向
+        Target_Speed_Control(45, 35); // 轻微左偏
+        if (circle_state == CIRCLE_ON_TRACK)
+            cir_stage = 2;
+        break;
+
+    case 2:
+        // 环岛内稳定行驶
+        Target_Speed_Control(50, 40);
+        if (detect_circle_exit())
+            cir_stage = 3;
+        break;
+
+    case 3:
+        // 检测到出口：准备转向
+        Target_Speed_Control(45, 35);
+        cir_stage = 4;
+        break;
+
+    case 4:
+        // 出口转向
+        Target_Speed_Control(50, 30);
+        if (!detect_circle_exit())
+            cir_stage = 5;
+        break;
+
+    case 5:
+        // 离开环岛：恢复直线行驶
+        Target_Speed_Control(45, 45);
+        cir_stage = 6;
+        break;
+
+    case 6:
+        // 重置状态
+        flag_l_cir = 0;
+        cir_stage = 0;
+        break;
     }
 }
 
@@ -880,22 +927,22 @@ uint8 detect_circle_entry(void)
     // 1. 基于特定像素模式检测
     uint8 i = 0, j = 0;
     uint8 count = 0;
-    
+
     // 检测是否存在环岛特征：查找 "黑-白-黑" 的垂直像素排列模式
     for (i = 5; i < 20; i++)
     {
         for (j = 5; j < IMAGE_WIDTH - 5; j++)
         {
-            if (bin_image[i][j] == 0 && bin_image[i+1][j] == 255 && bin_image[i-1][j] == 255)
+            if (bin_image[i][j] == 0 && bin_image[i + 1][j] == 255 && bin_image[i - 1][j] == 255)
             {
                 count++;
             }
         }
     }
-    
+
     // 2. 结合边界宽度特征检测
     uint8 width_sum = 0;
-    for (uint8 y = CIRCLE_BOTTOM_LINE; y < image_h; y++)
+    for (uint8 y = CIRCLE_BOTTOM_LINE; y < IMAGE_HEIGHT; y++)
     {
         uint8 line_width = r_border[y] - l_border[y];
         if (line_width > CIRCLE_ENTRY_WIDTH_THRESHOLD)
@@ -903,9 +950,9 @@ uint8 detect_circle_entry(void)
             width_sum++;
         }
     }
-    
+
     // 两种检测方法结合，提高可靠性
-    if ((count > 15 || width_sum > (image_h - CIRCLE_BOTTOM_LINE) * 0.7))
+    if ((count > 15 || width_sum > (IMAGE_HEIGHT - CIRCLE_BOTTOM_LINE) * 0.7))
     {
         circle_entry_count++;
         if (circle_entry_count >= CIRCLE_ENTRY_THRESHOLD)
@@ -922,7 +969,7 @@ uint8 detect_circle_entry(void)
     {
         circle_entry_count = 0;
     }
-    
+
     return 0;
 }
 
@@ -937,29 +984,29 @@ uint8 detect_circle_exit(void)
     {
         return 1;
     }
-    
+
     // 1. 基于特定像素模式检测
     uint8 i = 0, j = 0;
     uint8 count = 0;
-    
+
     // 检测是否存在环岛出口特征：查找 "白-黑-白" 的垂直像素排列模式
     for (i = 5; i < 20; i++)
     {
         for (j = 5; j < IMAGE_WIDTH - 5; j++)
         {
-            if (bin_image[i][j] == 255 && bin_image[i+1][j] == 0 && bin_image[i-1][j] == 0)
+            if (bin_image[i][j] == 255 && bin_image[i + 1][j] == 0 && bin_image[i - 1][j] == 0)
             {
                 count++;
             }
         }
     }
-    
+
     // 2. 结合边界宽度特征检测
     uint8 bottom_narrow_count = 0;
     uint8 top_wide_count = 0;
-    
+
     // 检查底部区域宽度是否变窄
-    for (uint8 y = CIRCLE_BOTTOM_LINE; y < image_h; y++)
+    for (uint8 y = CIRCLE_BOTTOM_LINE; y < IMAGE_HEIGHT; y++)
     {
         uint8 line_width = r_border[y] - l_border[y];
         if (line_width < CIRCLE_EXIT_WIDTH_THRESHOLD)
@@ -967,7 +1014,7 @@ uint8 detect_circle_exit(void)
             bottom_narrow_count++;
         }
     }
-    
+
     // 检查顶部区域是否保持宽线
     for (uint8 y = 0; y < CIRCLE_TOP_LINE; y++)
     {
@@ -977,10 +1024,10 @@ uint8 detect_circle_exit(void)
             top_wide_count++;
         }
     }
-    
+
     // 两种检测方法结合，提高可靠性
-    if (count > 15 || (bottom_narrow_count > (image_h - CIRCLE_BOTTOM_LINE) * 0.7 &&
-        top_wide_count > CIRCLE_TOP_LINE * 0.7))
+    if (count > 15 || (bottom_narrow_count > (IMAGE_HEIGHT - CIRCLE_BOTTOM_LINE) * 0.7 &&
+                       top_wide_count > CIRCLE_TOP_LINE * 0.7))
     {
         circle_exit_count++;
         if (circle_exit_count >= CIRCLE_EXIT_THRESHOLD)
@@ -993,8 +1040,469 @@ uint8 detect_circle_exit(void)
     {
         circle_exit_count = 0;
     }
-    
+
     return 0;
+}
+
+// 十字补线法
+/**
+ * @brief 计算丢线情况和最长直道长度
+ * @param 无
+ * @return 无
+ */
+void lose_line()
+{
+    r_lose_num = 0;
+    l_lose_num = 0;
+    length = 0;
+    uint16_t i = 0;
+
+    // 判断左边界丢线情况
+    for (i = IMAGE_HEIGHT - 1; i > 1; i--)
+    {
+        if (left_bor[i] <= 3 && left_bor[i] > 0)
+        {
+            l_lose_judge[i] = 1;
+            l_lose_num++;
+        }
+        else
+            l_lose_judge[i] = 0; // 丢线记为1
+    }
+
+    // 判断右边界丢线情况
+    for (i = IMAGE_HEIGHT - 1; i > 1; i--)
+    {
+        if (right_bor[i] >= 156 && right_bor[i] < 160)
+        {
+            r_lose_judge[i] = 1;
+            r_lose_num++;
+        }
+        else
+            r_lose_judge[i] = 0; // 丢线记为1
+    }
+
+    // 计算最长直道长度（从底部开始找线）
+    for (i = IMAGE_HEIGHT - 1; i > 0; i--)
+    {
+        if (bin_image[i][80] != 0 && bin_image[i - 1][80] != 0)
+            length++;
+    }
+}
+
+/**
+ * @brief 判断特定区域内的丢线情况
+ * @param type - 类型（1：左边界，2：右边界）
+ * @param startline - 起始行
+ * @param endline - 结束行
+ * @return 无
+ */
+void lose_location_test(uint8_t type, uint8_t startline, uint8_t endline)
+{
+    lose_num = 0, nolose_num = 0;
+    uint8_t y = startline;
+
+    // 检查左边界丢线情况
+    if (type == 1)
+    {
+        for (y = startline; y > endline; y--)
+        {
+            lose_num += l_lose_judge[y];
+            nolose_num = (startline - endline + 1) - lose_num;
+        }
+    }
+    // 检查右边界丢线情况
+    if (type == 2)
+    {
+        for (y = startline; y > endline; y--)
+        {
+            lose_num += r_lose_judge[y];
+            nolose_num = (startline - endline + 1) - lose_num;
+        }
+    }
+}
+
+/**
+ * @brief 计算斜率截距
+ * @param uint8 start			输入起点
+ * @param uint8 end			输入终点
+ * @param uint8 *border			输入需要计算斜率的边界
+ * @param float *slope_rate			输入斜率地址
+ * @param float *intercept			输入截距地址
+ *  @see CTest		calculate_s_i(start, end, r_border, &slope_l_rate, &intercept_l);
+ * @return 返回说明
+ *     -<em>false</em> fail
+ *     -<em>true</em> succeed
+ */
+void calculate_s_i(uint8 start, uint8 end, uint8 *border, float *slope_rate, float *intercept)
+{
+    uint16 i, num = 0;
+    uint16 xsum = 0, ysum = 0;
+    float y_average, x_average;
+
+    num = 0;
+    xsum = 0;
+    ysum = 0;
+    y_average = 0;
+    x_average = 0;
+    for (i = start; i < end; i++)
+    {
+        xsum += i;
+        ysum += border[i];
+        num++;
+    }
+
+    // 计算各个平均数
+    if (num)
+    {
+        x_average = (float)(xsum / num);
+        y_average = (float)(ysum / num);
+    }
+
+    /*计算斜率*/
+    *slope_rate = Slope_Calculate(start, end, border);  // 斜率
+    *intercept = y_average - (*slope_rate) * x_average; // 截距
+}
+
+/**
+ * @brief 十字路口判断
+ * @param 无
+ * @return
+ *   0 - 未检测到十字
+ *   1 - 检测到类型1十字
+ *   2 - 检测到类型2十字
+ */
+u8 cross_judge(void)
+{
+    uint16 i = 0;
+    uint8 num1 = 0;
+    uint8 num2 = 0, num3 = 0, num4 = 0;
+
+    // 检测类型1十字
+    if (l_l_judge() && length > 110)
+    {
+        for (i = 0; i < data_stastics_l; i++)
+        {
+            if (dir_r[i] == 6)
+                num1++;
+            if (dir_l[i] == 6)
+                num2++;
+        }
+        // 判断是否满足类型1十字的方向特征
+        if (num2 > 5 && num1 > 5) // 简化版本，去掉了r_dir_sum和l_dir_sum的检查
+        {
+            num1 = 0;
+            num2 = 0;
+            return 1;
+        }
+    }
+
+    // 检测类型2十字
+    if (l_l_judge() == 2 && length > 110)
+    {
+        for (i = 0; i < data_stastics_l; i++)
+        {
+            if (dir_r[i] == 2)
+                num4++;
+            if (dir_l[i] == 2)
+                num3++;
+        }
+        // 判断是否满足类型2十字的方向特征
+        if (num3 > 5 && num4 > 4) // 简化版本
+        {
+            num3 = 0;
+            num4 = 0;
+            return 2;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * @brief 左边界十字补线
+ * @param total_L - 左边界点总数
+ * @return 无
+ */
+void L_border_cross(uint16 total_L)
+{
+    uint16 i = total_L - 1;
+    uint8 h = 0;
+    uint8 count = 0;
+    uint8 x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+    float k_l = 0;
+    uint8 h2 = 0;
+
+    // 初始化左边界数组
+    for (h = 0; h < IMAGE_HEIGHT; h++)
+    {
+        left_bor[h] = 0;
+    }
+
+    // 处理十字情况1
+    if (flag_cross == 1)
+    {
+        while (i > 0)
+        {
+            h = points_l[i][1];
+            if (h2 > h)
+            {
+                i--;
+                continue;
+            }
+            h2 = 0;
+
+            // 检测十字特征
+            if (dir_l[i - 2] == 6 && dir_l[i - 1] == 6 && dir_l[i] == 6 && dir_l[i + 1] != 6 && i - 2 > 1 && h > 3)
+            {
+                // 计算斜率
+                x1 = points_l[i - 7][0];
+                y1 = points_l[i - 7][1];
+                x2 = points_l[i - 11][0];
+                y2 = points_l[i - 11][1];
+                k_l = abs((y1 - y2) / (x1 - x2));
+
+                // 补线处理
+                while (count < 100 && h - count > 0)
+                {
+                    if (points_l[i][0] - ((float)count / 4) < 2)
+                    {
+                        left_bor[h - count] = 2;
+                    }
+                    else
+                        left_bor[h - count] = points_l[i][0] - ((float)count / 4);
+                    count++;
+                }
+                h2 = h - count + 1;
+                count = 0;
+            }
+            else if (points_l[i][0] > left_bor[h])
+            {
+                left_bor[h] = points_l[i][0];
+            }
+            i--;
+        }
+    }
+    // 处理十字情况2
+    else if (flag_cross == 2)
+    {
+        for (i = 0; i < data_stastics_l; i++)
+        {
+            if (dir_l[i] == 2 && dir_l[i - 1] == 4 && dir_l[i + 1] == 2)
+            {
+                x1 = points_l[i][0];
+                y1 = points_l[i][1];
+                x2 = i;
+                break;
+            }
+        }
+        // 补线处理
+        for (i = 24; i < 127; i++)
+        {
+            left_bor[i] = x1 - (i - x2) / 4 - 10;
+        }
+        x1 = 0;
+        y1 = 0;
+        x2 = 0;
+    }
+}
+
+/**
+ * @brief 右边界十字补线
+ * @param total_R - 右边界点总数
+ * @return 无
+ */
+void R_border_cross(uint16 total_R)
+{
+    uint16 i = total_R - 1;
+    uint8 h = 0;
+    uint8 count = 0;
+    uint8 x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+    float k_r = 0;
+    uint8 h2 = 0;
+
+    // 初始化右边界数组
+    for (h = 0; h < IMAGE_HEIGHT; h++)
+    {
+        right_bor[h] = 200;
+    }
+
+    // 处理十字情况1
+    if (flag_cross == 1)
+    {
+        while (i > 0)
+        {
+            h = points_r[i][1];
+            if (h2 > h)
+            {
+                i--;
+                continue;
+            }
+            h2 = 0;
+
+            // 检测十字特征
+            if (dir_r[i - 2] == 6 && dir_r[i - 1] == 6 && dir_r[i] == 6 && dir_r[i + 1] != 6 && i - 2 > 1 && h > 3)
+            {
+                // 计算斜率
+                x1 = points_r[i + 7][0];
+                y1 = points_r[i + 7][1];
+                x2 = points_r[i + 11][0];
+                y2 = points_r[i + 11][1];
+                k_r = abs((y1 - y2) / (x1 - x2));
+
+                // 补线处理
+                while (count < 100 && h + count < 127)
+                {
+                    if (points_r[i][0] + ((float)count / 4) > 158)
+                    {
+                        right_bor[h + count] = 158;
+                    }
+                    else
+                        right_bor[h + count] = points_r[i][0] + ((float)count / 4);
+                    count++;
+                }
+                h2 = h + count - 1;
+                count = 0;
+            }
+            else if (points_r[i][0] < right_bor[h])
+            {
+                right_bor[h] = points_r[i][0];
+            }
+            i--;
+        }
+    }
+    // 处理十字情况2
+    else if (flag_cross == 2)
+    {
+        for (i = 0; i < data_stastics_r; i++)
+        {
+            if (dir_r[i] == 2 && dir_r[i + 1] == 2 && (dir_r[i - 1] == 4 || dir_r[i - 1] == 5) && points_r[i][0] > 70)
+            {
+                x1 = points_r[i][0];
+                y1 = points_r[i][1];
+                x2 = i;
+                break;
+            }
+        }
+        // 根据x1位置决定补线方式
+        if (x1 < 70)
+        {
+            for (i = 24; i < 127; i++)
+            {
+                right_bor[i] = left_bor[i] + 50; // 假设的标准宽度
+            }
+        }
+        else
+        {
+            for (i = 24; i < 127; i++)
+            {
+                right_bor[i] = x1 + (i - x2) / 4;
+            }
+        }
+        x1 = 0;
+        y1 = 0;
+        x2 = 0;
+    }
+}
+
+/**
+ * @brief 十字补线函数
+ * @param uint8(*image)[IMAGE_WIDTH]		输入二值图像
+ * @param uint8 *l_border			输入左边界首地址
+ * @param uint8 *r_border			输入右边界首地址
+ * @param uint16 total_num_l			输入左边循环总次数
+ * @param uint16 total_num_r			输入右边循环总次数
+ * @param uint16 *dir_l			输入左边生长方向首地址
+ * @param uint16 *dir_r			输入右边生长方向首地址
+ * @param uint16(*points_l)[2]		输入左边轮廓首地址
+ * @param uint16(*points_r)[2]		输入右边轮廓首地址
+ *  @see CTest		cross_fill(image,l_border, r_border, data_statics_l, data_statics_r, dir_l, dir_r, points_l, points_r);
+ * @return 返回说明
+ *     -<em>false</em> fail
+ *     -<em>true</em> succeed
+ */
+void cross_fill(uint8 (*image)[IMAGE_WIDTH], uint8 *l_border, uint8 *r_border, uint16 total_num_l, uint16 total_num_r, uint16 *dir_l, uint16 *dir_r, uint16 (*points_l)[2], uint16 (*points_r)[2])
+{
+    // 计算丢线情况和最长直道长度
+    lose_line();
+
+    // 十字判断
+    uint8 cross_type = cross_judge();
+    if (cross_type > 0)
+    {
+        flag_cross = cross_type;
+        cross_timer = 0;
+
+        // 根据十字类型进行补线
+        L_border_cross(total_num_l);
+        R_border_cross(total_num_r);
+
+        // 计算中线
+        for (uint8 i = 0; i < IMAGE_HEIGHT; i++)
+        {
+            center_line[i] = (left_bor[i] + right_bor[i]) / 2;
+        }
+    }
+    else
+    {
+        // 现有的补线逻辑作为备用
+        uint8 i;
+        uint8 break_num_l = 0;
+        uint8 break_num_r = 0;
+        uint8 start, end;
+        float slope_l_rate = 0, intercept_l = 0;
+        // 出十字
+        for (i = 1; i < total_num_l; i++)
+        {
+            if (dir_l[i - 1] == 4 && dir_l[i] == 4 && dir_l[i + 3] == 6 && dir_l[i + 5] == 6 && dir_l[i + 7] == 6)
+            {
+                break_num_l = points_l[i][1]; // 传递y坐标
+                break;
+            }
+        }
+        for (i = 1; i < total_num_r; i++)
+        {
+            if (dir_r[i - 1] == 4 && dir_r[i] == 4 && dir_r[i + 3] == 6 && dir_r[i + 5] == 6 && dir_r[i + 7] == 6)
+            {
+                break_num_r = points_r[i][1]; // 传递y坐标
+                break;
+            }
+        }
+        if (break_num_l && break_num_r && image[IMAGE_HEIGHT - 1][4] && image[IMAGE_HEIGHT - 1][IMAGE_WIDTH - 4]) // 两边生长方向都符合条件
+        {
+            // 计算斜率
+            start = break_num_l - 15;
+            start = limit_a_b(start, 0, IMAGE_HEIGHT);
+            end = break_num_l - 5;
+            calculate_s_i(start, end, l_border, &slope_l_rate, &intercept_l);
+            for (i = break_num_l - 5; i < IMAGE_HEIGHT - 1; i++)
+            {
+                l_border[i] = slope_l_rate * (i) + intercept_l;               // y = kx+b
+                l_border[i] = limit_a_b(l_border[i], border_min, border_max); // 限幅
+            }
+
+            // 计算斜率
+            start = break_num_r - 15;                  // 起点
+            start = limit_a_b(start, 0, IMAGE_HEIGHT); // 限幅
+            end = break_num_r - 5;                     // 终点
+            calculate_s_i(start, end, r_border, &slope_l_rate, &intercept_l);
+            for (i = break_num_r - 5; i < IMAGE_HEIGHT - 1; i++)
+            {
+                r_border[i] = slope_l_rate * (i) + intercept_l;
+                r_border[i] = limit_a_b(r_border[i], border_min, border_max);
+            }
+        }
+
+        // 清除十字标志
+        if (flag_cross > 0)
+        {
+            cross_timer++;
+            if (cross_timer > 50) // 超时清除
+            {
+                flag_cross = 0;
+                cross_timer = 0;
+            }
+        }
+    }
 }
 
 /**
@@ -1003,13 +1511,13 @@ uint8 detect_circle_exit(void)
 void circle_process(void)
 {
     static uint16 circle_timer = 0;
-    
+
     // 计算环岛中心点
     cir_point();
-    
+
     // 进行环岛补线处理
     circle_line_complement();
-    
+
     switch (circle_state)
     {
     case CIRCLE_NONE:
@@ -1049,7 +1557,7 @@ void circle_process(void)
             // 通用环岛处理
             Target_Speed_Control(50, 50);
         }
-        
+
         // 检测出口
         if (detect_circle_exit())
         {

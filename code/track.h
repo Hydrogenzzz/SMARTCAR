@@ -8,6 +8,9 @@
 // 复用现有的图像尺寸定义
 #define IMAGE_HEIGHT MT9V03X_H // 图像高度
 #define IMAGE_WIDTH MT9V03X_W  // 图像宽度
+// 为了保持兼容性，添加别名
+#define image_h IMAGE_HEIGHT
+#define image_w IMAGE_WIDTH
 
 // 颜色定义
 #define uesr_RED 0XF800   // 红色
@@ -22,7 +25,7 @@
 #define RGB565_WHITE 0xFFFF  // 白色
 #define RGB565_BLACK 0x0000  // 黑色
 // 边界定义
-#define border_max (image_w - 2) // 边界最大值
+#define border_max (IMAGE_WIDTH - 2) // 边界最大值
 #define border_min 1             // 边界最小值
 /*变量声明*/
 #define use_num 1 // 1就是不压缩，2就是压缩一倍
@@ -35,11 +38,11 @@
 #define CIRCLE_TOP_LINE 30              // 图像顶部检测线
 // 函数声明
 extern void track_process(void);   // 巡线主处理函数
-extern uint8 l_border[image_h];    // 左边界数组
-extern uint8 r_border[image_h];    // 右边界数组
-extern uint8 center_line[image_h]; // 中心线数组
+extern uint8 l_border[IMAGE_HEIGHT];    // 左边界数组
+extern uint8 r_border[IMAGE_HEIGHT];    // 右边界数组
+extern uint8 center_line[IMAGE_HEIGHT]; // 中心线数组
 
-extern uint8 original_image[image_h][image_w];
+extern uint8 original_image[IMAGE_HEIGHT][IMAGE_WIDTH];
 
 extern int16 track_deviation; // 路径偏差值（-100到100）
 
@@ -81,5 +84,13 @@ extern void cir_point(void);                 // 计算环岛中心点
 extern void circle_line_complement(void);    // 环岛补线处理
 extern void Cir_r_handle(void);              // 右环岛处理
 extern void Cir_l_handle(void);              // 左环岛处理
+
+// 十字处理函数声明
+extern void lose_line(void);                 // 计算丢线情况和最长直道长度
+extern void lose_location_test(uint8_t type, uint8_t startline, uint8_t endline); // 判断特定区域内的丢线情况
+extern u8 cross_judge(void);                 // 十字路口判断
+extern void L_border_cross(uint16 total_L);  // 左边界十字补线
+extern void R_border_cross(uint16 total_R);  // 右边界十字补线
+extern void cross_fill(uint8 (*image)[IMAGE_WIDTH], uint8 *l_border, uint8 *r_border, uint16 total_num_l, uint16 total_num_r, uint16 *dir_l, uint16 *dir_r, uint16 (*points_l)[2], uint16 (*points_r)[2]); // 十字补线主函数
 
 #endif /*_TRACK_H_*/
