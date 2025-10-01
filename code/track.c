@@ -101,19 +101,28 @@ int16 limit1(int16 x, int16 y)
 }
 
 /*
-函数名称：void get_start_point(uint8 start_row)
+函数名称：uint8 get_start_point(uint8 start_row)
 功能说明：寻找两个边界的边界点作为八邻域循环的起始点
 参数说明：输入任意行数
-函数返回：无
-修改时间：2022年9月8日
-备    注：
-example：  get_start_point(IMAGE_HEIGHT-2)
+函数返回：找到起点返回1，未找到返回0
+修改时间：2024年3月20日
+备    注：优化版本 - 包含多行列搜索、起始点验证、历史信息预测
  */
 uint8 start_point_l[2] = {0}; // 左边起点的x，y值
 uint8 start_point_r[2] = {0}; // 右边起点的x，y值
+uint8 last_valid_l[2] = {0};  // 上一帧有效左边界点
+uint8 last_valid_r[2] = {0};  // 上一帧有效右边界点
 uint8 get_start_point(uint8 start_row)
 {
     uint8 i = 0, l_found = 0, r_found = 0;
+    uint8 search_range = 3; // 搜索行数范围
+    uint8 confidence_l = 0; // 左边界点置信度
+    uint8 confidence_r = 0;
+    uint8 best_l_row = start_row; // 最佳左边界行
+    uint8 best_r_row = start_row; // 最佳右边界行
+    uint8 best_l_x = 0;           // 最佳左边界x坐标
+    uint8 best_r_x = 0;           // 最佳右边界x坐标
+
     // 清零
     start_point_l[0] = 0; // x
     start_point_l[1] = 0; // y
@@ -121,33 +130,152 @@ uint8 get_start_point(uint8 start_row)
     start_point_r[0] = 0; // x
     start_point_r[1] = 0; // y
 
-    // 从中间往左边，先找起点
-    for (i = IMAGE_WIDTH / 2; i > border_min; i--)
+    // 优先在指定行搜索，如果找不到则扩展到相邻行
+    for (int8 search_offset = 0; search_offset <= search_range; search_offset++)
     {
-        start_point_l[0] = i;         // x
-        start_point_l[1] = start_row; // y
-        if (bin_image[start_row][i] == 255 && bin_image[start_row][i - 1] == 0)
+        uint8 current_row = start_row - search_offset;
+
+        // 确保行号有效
+        if (current_row < 0)
+            continue;
+
+        // 尝试使用历史信息预测起始点位置，提高搜索效率
+        uint8 left_search_start = IMAGE_WIDTH / 2;
+        uint8 right_search_start = IMAGE_WIDTH / 2;
+
+        // 如果有上一帧的有效信息，从历史位置附近开始搜索
+        if (last_valid_l[0] > 0 && last_valid_l[1] > 0)
         {
-            // printf("找到左边起点image[%d][%d]\n", start_row,i);
-            l_found = 1;
-            break;
+            left_search_start = last_valid_l[0];
         }
+        if (last_valid_r[0] > 0 && last_valid_r[1] > 0)
+        {
+            right_search_start = last_valid_r[0];
+        }
+
+        // 从预测位置开始向左搜索左边界
+        if (!l_found)
+        {
+            // 先从预测位置向左搜索
+            for (i = left_search_start; i > border_min; i--)
+            {
+                if (bin_image[current_row][i] == 255 && bin_image[current_row][i - 1] == 0)
+                {
+                    // 计算置信度：位置接近中心、边界清晰
+                    uint8 current_confidence = 10 - (my_abs(i - IMAGE_WIDTH / 2) / 5);
+                    if (current_confidence > confidence_l)
+                    {
+                        confidence_l = current_confidence;
+                        best_l_x = i;
+                        best_l_row = current_row;
+                    }
+                    l_found = 1;
+                    break;
+                }
+            }
+
+            // 如果从预测位置没找到，再从中心向左搜索
+            if (!l_found)
+            {
+                for (i = IMAGE_WIDTH / 2; i > border_min; i--)
+                {
+                    if (bin_image[current_row][i] == 255 && bin_image[current_row][i - 1] == 0)
+                    {
+                        uint8 current_confidence = 10 - (my_abs(i - IMAGE_WIDTH / 2) / 5);
+                        if (current_confidence > confidence_l)
+                        {
+                            confidence_l = current_confidence;
+                            best_l_x = i;
+                            best_l_row = current_row;
+                        }
+                        l_found = 1;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 从预测位置开始向右搜索右边界
+        if (!r_found)
+        {
+            // 先从预测位置向右搜索
+            for (i = right_search_start; i < border_max; i++)
+            {
+                if (bin_image[current_row][i] == 255 && bin_image[current_row][i + 1] == 0)
+                {
+                    // 计算置信度：位置接近中心、边界清晰
+                    uint8 current_confidence = 10 - (my_abs(i - IMAGE_WIDTH / 2) / 5);
+                    if (current_confidence > confidence_r)
+                    {
+                        confidence_r = current_confidence;
+                        best_r_x = i;
+                        best_r_row = current_row;
+                    }
+                    r_found = 1;
+                    break;
+                }
+            }
+
+            // 如果从预测位置没找到，再从中心向右搜索
+            if (!r_found)
+            {
+                for (i = IMAGE_WIDTH / 2; i < border_max; i++)
+                {
+                    if (bin_image[current_row][i] == 255 && bin_image[current_row][i + 1] == 0)
+                    {
+                        uint8 current_confidence = 10 - (my_abs(i - IMAGE_WIDTH / 2) / 5);
+                        if (current_confidence > confidence_r)
+                        {
+                            confidence_r = current_confidence;
+                            best_r_x = i;
+                            best_r_row = current_row;
+                        }
+                        r_found = 1;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 如果左右边界都找到了，可以提前退出搜索
+        if (l_found && r_found)
+            break;
     }
 
-    for (i = IMAGE_WIDTH / 2; i < border_max; i++)
+    // 设置找到的最佳起始点
+    if (l_found)
     {
-        start_point_r[0] = i;         // x
-        start_point_r[1] = start_row; // y
-        if (bin_image[start_row][i] == 255 && bin_image[start_row][i + 1] == 0)
-        {
-            // printf("找到右边起点image[%d][%d]\n",start_row, i);
-            r_found = 1;
-            break;
-        }
+        start_point_l[0] = best_l_x;
+        start_point_l[1] = best_l_row;
+        // 保存有效的历史信息
+        last_valid_l[0] = best_l_x;
+        last_valid_l[1] = best_l_row;
     }
 
+    if (r_found)
+    {
+        start_point_r[0] = best_r_x;
+        start_point_r[1] = best_r_row;
+        // 保存有效的历史信息
+        last_valid_r[0] = best_r_x;
+        last_valid_r[1] = best_r_row;
+    }
+
+    // 起始点验证：确保左右边界间距合理
     if (l_found && r_found)
-        return 1;
+    {
+        uint8 width = start_point_r[0] - start_point_l[0];
+        // 如果左右边界间距在合理范围内，认为找到了有效起始点
+        if (width >= 30 && width <= 100)
+        {
+            return 1;
+        }
+        else
+        {
+            // 间距不合理，可能是噪声干扰，返回失败
+            return 0;
+        }
+    }
     else
     {
         // printf("未找到起点\n");
@@ -343,27 +471,82 @@ void search_l_r(uint16 break_flag, uint8 (*image)[IMAGE_WIDTH], uint16 *l_stasti
         {
             if (image[search_filds_r[i][1]][search_filds_r[i][0]] == 0 && image[search_filds_r[(i + 1) & 7][1]][search_filds_r[(i + 1) & 7][0]] == 255)
             {
-                temp_r[index_r][0] = search_filds_r[(i)][0];
-                temp_r[index_r][1] = search_filds_r[(i)][1];
-                index_r++;                       // 索引加一
-                dir_r[r_data_statics - 1] = (i); // 记录生长方向
-                // printf("dir[%d]:%d\n", r_data_statics - 1, dir_r[r_data_statics - 1]);
-            }
-            if (index_r)
-            {
+                temp_r[index_r][0] = search_filds_r[i][0];
+                temp_r[index_r][1] = search_filds_r[i][1];
 
-                // 更新坐标点
-                center_point_r[0] = temp_r[0][0]; // x
-                center_point_r[1] = temp_r[0][1]; // y
-                for (j = 0; j < index_r; j++)
+                // 计算候选点权重
+                // 1. 基于历史方向的权重
+                uint8 dir_diff = my_abs(i - last_dir_r);
+                dir_diff = dir_diff > 4 ? 8 - dir_diff : dir_diff; // 计算最小角度差
+                temp_r_weight[index_r] = dir_weight_r[i] * (5 - dir_diff);
+
+                // 2. 优先选择上方的点（高y值）
+                if (temp_r[index_r][1] > center_point_r[1])
                 {
-                    if (center_point_r[1] > temp_r[j][1])
+                    temp_r_weight[index_r] += 3; // 给上方的点额外权重
+                }
+
+                // 3. 避免过于靠近中线
+                uint8 mid_line = (IMAGE_WIDTH) / 2;
+                if (my_abs(temp_r[index_r][0] - mid_line) > 20)
+                {
+                    temp_r_weight[index_r] += 2; // 远离中线的点更可能是边界
+                }
+
+                index_r++;
+                dir_r[r_data_statics - 1] = i; // 记录生长方向
+            }
+        }
+
+        // 根据权重选择最佳点
+        if (index_r)
+        {
+            // 找到权重最大的点
+            uint8 best_index = 0;
+            for (j = 1; j < index_r; j++)
+            {
+                if (temp_r_weight[j] > temp_r_weight[best_index])
+                {
+                    best_index = j;
+                }
+                else if (temp_r_weight[j] == temp_r_weight[best_index])
+                {
+                    // 权重相同时，优先选择上方的点
+                    if (temp_r[j][1] > temp_r[best_index][1])
                     {
-                        center_point_r[0] = temp_r[j][0]; // x
-                        center_point_r[1] = temp_r[j][1]; // y
+                        best_index = j;
                     }
                 }
             }
+
+            // 更新坐标点
+            center_point_r[0] = temp_r[best_index][0]; // x
+            center_point_r[1] = temp_r[best_index][1]; // y
+
+            // 更新方向统计和权重表
+            uint8 current_dir = dir_r[r_data_statics - 1];
+            if (current_dir == last_dir_r)
+            {
+                same_dir_count_r++;
+                if (same_dir_count_r > MAX_CONSECUTIVE_SAME_DIRECTION)
+                {
+                    // 连续多次同一方向，增加相邻方向的权重，避免陷入局部最优
+                    dir_weight_r[(current_dir + 1) & 7] += 1;
+                    dir_weight_r[(current_dir - 1) & 7] += 1;
+                }
+            }
+            else
+            {
+                same_dir_count_r = 1;
+                // 新方向，增加其权重
+                dir_weight_r[current_dir] += 1;
+                // 衰减旧方向的权重
+                if (dir_weight_r[last_dir_r] > 1)
+                {
+                    dir_weight_r[last_dir_r] -= 1;
+                }
+            }
+            last_dir_r = current_dir;
         }
     }
 
@@ -378,10 +561,12 @@ void search_l_r(uint16 break_flag, uint8 (*image)[IMAGE_WIDTH], uint16 *l_stasti
 参数说明：
 total_L    ：找到的点的总数
 函数返回：无
-修改时间：2022年9月25日
-备    注：
-example： get_left(data_stastics_l );
+修改时间：2024年3月20日
+备    注：优化版本 - 包含平滑处理、缺失点补全和异常点过滤
  */
+#define SMOOTH_WINDOW_SIZE 3 // 平滑窗口大小
+#define MAX_JUMP_THRESHOLD 5 // 相邻行边界点的最大跳跃阈值
+
 uint8 l_border[IMAGE_HEIGHT];    // 左线数组
 uint8 r_border[IMAGE_HEIGHT];    // 右线数组
 uint8 center_line[IMAGE_HEIGHT]; // 中线数组
@@ -390,26 +575,121 @@ void get_left(uint16 total_L)
     uint8 i = 0;
     uint16 j = 0;
     uint8 h = 0;
+    uint8 valid_points[IMAGE_HEIGHT] = {0}; // 记录每行是否有有效点
+
     // 初始化
     for (i = 0; i < IMAGE_HEIGHT; i++)
     {
         l_border[i] = border_min;
+        valid_points[i] = 0;
     }
-    h = IMAGE_HEIGHT - 2;
-    // 左边
+
+    // 第一次遍历：记录所有有效点
     for (j = 0; j < total_L; j++)
     {
-        // printf("%d\n", j);
-        if (points_l[j][1] == h)
+        if (points_l[j][1] >= 0 && points_l[j][1] < IMAGE_HEIGHT)
         {
-            l_border[h] = points_l[j][0] + 1;
+            // 每行可能有多个点，取中间位置或最靠近上一行的点
+            if (!valid_points[points_l[j][1]] ||
+                (valid_points[points_l[j][1]] && points_l[j][1] > h))
+            {
+                l_border[points_l[j][1]] = points_l[j][0] + 1;
+                valid_points[points_l[j][1]] = 1;
+            }
         }
-        else
-            continue; // 每行只取一个点，没到下一行就不记录
-        h--;
-        if (h == 0)
+    }
+
+    // 第二次遍历：补全缺失的点（基于线性插值）
+    uint8 last_valid_y = IMAGE_HEIGHT - 1;
+    uint8 next_valid_y = 0;
+
+    // 从底部开始查找第一个有效点
+    for (h = IMAGE_HEIGHT - 1; h >= 0; h--)
+    {
+        if (valid_points[h])
         {
-            break; // 到最后一行退出
+            last_valid_y = h;
+            break;
+        }
+    }
+
+    // 向上补全缺失点
+    for (h = last_valid_y - 1; h >= 0; h--)
+    {
+        if (valid_points[h])
+        {
+            // 找到下一个有效点，进行线性插值
+            next_valid_y = h;
+
+            if (last_valid_y - next_valid_y > 1)
+            {
+                float slope = (float)(l_border[next_valid_y] - l_border[last_valid_y]) /
+                              (float)(next_valid_y - last_valid_y);
+
+                for (uint8 k = next_valid_y + 1; k < last_valid_y; k++)
+                {
+                    l_border[k] = l_border[last_valid_y] + slope * (k - last_valid_y);
+                    // 边界限幅
+                    if (l_border[k] < border_min)
+                        l_border[k] = border_min;
+                    if (l_border[k] > border_max)
+                        l_border[k] = border_max;
+                }
+            }
+
+            last_valid_y = next_valid_y;
+        }
+    }
+
+    // 第三次遍历：平滑处理
+    uint8 temp_border[IMAGE_HEIGHT];
+    for (i = 0; i < IMAGE_HEIGHT; i++)
+    {
+        temp_border[i] = l_border[i];
+    }
+
+    for (i = SMOOTH_WINDOW_SIZE; i < IMAGE_HEIGHT - SMOOTH_WINDOW_SIZE; i++)
+    {
+        // 中值滤波结合均值滤波，提高鲁棒性
+        uint8 window[SMOOTH_WINDOW_SIZE * 2 + 1];
+        for (j = 0; j < SMOOTH_WINDOW_SIZE * 2 + 1; j++)
+        {
+            uint8 idx = i - SMOOTH_WINDOW_SIZE + j;
+            window[j] = temp_border[idx];
+        }
+
+        // 冒泡排序计算中值
+        for (j = 0; j < SMOOTH_WINDOW_SIZE * 2; j++)
+        {
+            for (uint8 k = j + 1; k < SMOOTH_WINDOW_SIZE * 2 + 1; k++)
+            {
+                if (window[j] > window[k])
+                {
+                    uint8 temp = window[j];
+                    window[j] = window[k];
+                    window[k] = temp;
+                }
+            }
+        }
+
+        // 取中值作为滤波结果
+        l_border[i] = window[SMOOTH_WINDOW_SIZE];
+    }
+
+    // 第四次遍历：检测并修正异常跳跃
+    for (i = 1; i < IMAGE_HEIGHT; i++)
+    {
+        if (my_abs(l_border[i] - l_border[i - 1]) > MAX_JUMP_THRESHOLD)
+        {
+            // 跳跃过大，认为是异常点，使用前一行的值或平滑值
+            if (i > 1)
+            {
+                l_border[i] = (l_border[i - 1] + l_border[i - 2]) / 2;
+            }
+            else
+            {
+                l_border[i] = l_border[i - 1];
+            }
         }
     }
 }
@@ -419,32 +699,130 @@ void get_left(uint16 total_L)
 参数说明：
 total_R  ：找到的点的总数
 函数返回：无
-修改时间：2022年9月25日
-备    注：
-example：get_right(data_stastics_r);
+修改时间：2024年3月20日
+备    注：优化版本 - 包含平滑处理、缺失点补全和异常点过滤
  */
 void get_right(uint16 total_R)
 {
     uint8 i = 0;
     uint16 j = 0;
     uint8 h = 0;
+    uint8 valid_points[IMAGE_HEIGHT] = {0}; // 记录每行是否有有效点
+
+    // 初始化
     for (i = 0; i < IMAGE_HEIGHT; i++)
     {
-        r_border[i] = border_max; // 右边线初始化放到最右边，左边线放到最左边，这样八邻域闭合区域外的中线就会在中间，不会干扰得到的数据
+        r_border[i] = border_max; // 右边线初始化放到最右边
+        valid_points[i] = 0;
     }
-    h = IMAGE_HEIGHT - 2;
-    // 右边
+
+    // 第一次遍历：记录所有有效点
     for (j = 0; j < total_R; j++)
     {
-        if (points_r[j][1] == h)
+        if (points_r[j][1] >= 0 && points_r[j][1] < IMAGE_HEIGHT)
         {
-            r_border[h] = points_r[j][0] - 1;
+            // 每行可能有多个点，取中间位置或最靠近上一行的点
+            if (!valid_points[points_r[j][1]] ||
+                (valid_points[points_r[j][1]] && points_r[j][1] > h))
+            {
+                r_border[points_r[j][1]] = points_r[j][0] - 1;
+                valid_points[points_r[j][1]] = 1;
+            }
         }
-        else
-            continue; // 每行只取一个点，没到下一行就不记录
-        h--;
-        if (h == 0)
-            break; // 到最后一行退出
+    }
+
+    // 第二次遍历：补全缺失的点（基于线性插值）
+    uint8 last_valid_y = IMAGE_HEIGHT - 1;
+    uint8 next_valid_y = 0;
+
+    // 从底部开始查找第一个有效点
+    for (h = IMAGE_HEIGHT - 1; h >= 0; h--)
+    {
+        if (valid_points[h])
+        {
+            last_valid_y = h;
+            break;
+        }
+    }
+
+    // 向上补全缺失点
+    for (h = last_valid_y - 1; h >= 0; h--)
+    {
+        if (valid_points[h])
+        {
+            // 找到下一个有效点，进行线性插值
+            next_valid_y = h;
+
+            if (last_valid_y - next_valid_y > 1)
+            {
+                float slope = (float)(r_border[next_valid_y] - r_border[last_valid_y]) /
+                              (float)(next_valid_y - last_valid_y);
+
+                for (uint8 k = next_valid_y + 1; k < last_valid_y; k++)
+                {
+                    r_border[k] = r_border[last_valid_y] + slope * (k - last_valid_y);
+                    // 边界限幅
+                    if (r_border[k] < border_min)
+                        r_border[k] = border_min;
+                    if (r_border[k] > border_max)
+                        r_border[k] = border_max;
+                }
+            }
+
+            last_valid_y = next_valid_y;
+        }
+    }
+
+    // 第三次遍历：平滑处理
+    uint8 temp_border[IMAGE_HEIGHT];
+    for (i = 0; i < IMAGE_HEIGHT; i++)
+    {
+        temp_border[i] = r_border[i];
+    }
+
+    for (i = SMOOTH_WINDOW_SIZE; i < IMAGE_HEIGHT - SMOOTH_WINDOW_SIZE; i++)
+    {
+        // 中值滤波结合均值滤波，提高鲁棒性
+        uint8 window[SMOOTH_WINDOW_SIZE * 2 + 1];
+        for (j = 0; j < SMOOTH_WINDOW_SIZE * 2 + 1; j++)
+        {
+            uint8 idx = i - SMOOTH_WINDOW_SIZE + j;
+            window[j] = temp_border[idx];
+        }
+
+        // 冒泡排序计算中值
+        for (j = 0; j < SMOOTH_WINDOW_SIZE * 2; j++)
+        {
+            for (uint8 k = j + 1; k < SMOOTH_WINDOW_SIZE * 2 + 1; k++)
+            {
+                if (window[j] > window[k])
+                {
+                    uint8 temp = window[j];
+                    window[j] = window[k];
+                    window[k] = temp;
+                }
+            }
+        }
+
+        // 取中值作为滤波结果
+        r_border[i] = window[SMOOTH_WINDOW_SIZE];
+    }
+
+    // 第四次遍历：检测并修正异常跳跃
+    for (i = 1; i < IMAGE_HEIGHT; i++)
+    {
+        if (my_abs(r_border[i] - r_border[i - 1]) > MAX_JUMP_THRESHOLD)
+        {
+            // 跳跃过大，认为是异常点，使用前一行的值或平滑值
+            if (i > 1)
+            {
+                r_border[i] = (r_border[i - 1] + r_border[i - 2]) / 2;
+            }
+            else
+            {
+                r_border[i] = r_border[i - 1];
+            }
+        }
     }
 }
 
@@ -1589,7 +1967,7 @@ void circle_process(void)
         break;
     }
 }
- 
+
 /**
  * @brief 带环岛处理的巡线函数
  */

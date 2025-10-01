@@ -91,9 +91,8 @@ int core0_main(void)
     pit_ms_init(CCU60_CH1, 5); // 定时读取速度
     // 初始化PIT定时器，用于按键扫描，周期5ms
     pit_ms_init(CCU60_CH0, 5); // 按键扫描
-
     // 设置初始目标速度为左右轮各60
-    Target_Speed_Control(60, 60); // 设定速度
+    Target_Speed_Control(60, 60); 
     // �˴���д�û����� ���������ʼ�������
     cpu_wait_event_ready(); // �ȴ����к��ĳ�ʼ�����
     while (TRUE)
